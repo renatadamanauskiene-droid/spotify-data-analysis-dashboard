@@ -1,5 +1,5 @@
 ---
-name: explainer-graphic
+name: aiskinamoji-grafika
 description: Sukurti vizualines infografikas naudojant realaus pasaulio analogijas
 triggers:
   - aiškinamoji grafika

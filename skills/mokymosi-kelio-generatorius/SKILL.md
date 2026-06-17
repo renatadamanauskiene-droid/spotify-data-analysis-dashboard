@@ -1,5 +1,5 @@
 ---
-name: learning-path-generator
+name: mokymosi-kelio-generatorius
 description: Sukurti struktūruotą mokymosi planą bet kokiam įgūdžiui ar temai. Naudokite šį įgūdį, kai vartotojas sako „mokytis", „kaip man išmokti", „mokymosi planas", „studijų planas", „pamokyk mane", „mokymosi žemėlapis", „mokymo programa" arba bet kokį panašų prašymą gauti struktūruotą planą kažko naujo išmokti.
 triggers:
   - kaip man išmokti

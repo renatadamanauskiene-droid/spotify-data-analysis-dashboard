@@ -1,5 +1,5 @@
 ---
-name: receipt-scanner
+name: kvitu-skaitytuvas
 description: Skaityti PDF kvitus ir sąskaitas faktūras, išgauti sumas ir sudaryti išlaidų ataskaitą
 triggers:
   - nuskaityk mano kvitus

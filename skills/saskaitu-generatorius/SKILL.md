@@ -1,5 +1,5 @@
 ---
-name: invoice-generator
+name: saskaitu-generatorius
 description: Sugeneruoti profesionalią PDF sąskaitą faktūrą iš kelių duomenų. Naudokite šį įgūdį, kai vartotojas sako „sukurk sąskaitą faktūrą", „pateik sąskaitą šiam klientui", „išrašyk sąskaitą", „siųsk sąskaitą", „sugeneruok sąskaitą", „padaryk sąskaitą" arba bet kokį panašų prašymą išrašyti sąskaitą už atliktą darbą.
 triggers:
   - sukurk sąskaitą faktūrą

@@ -1,5 +1,5 @@
 ---
-name: customize
+name: pritaikymas
 description: Parodykite, kaip pritaikyti šiuos įgūdžius savo konkrečiam naudojimo atvejui. Naudokite šį įgūdį, kai naudotojas sako „pritaikyti", „pritaikyti mano įgūdžius", „kaip redaguoti įgūdžius", „padaryk šiuos savo" arba „personalizuoti".
 ---
 

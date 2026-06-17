@@ -1,5 +1,5 @@
 ---
-name: workflow-visualizer
+name: procesu-vizualizatorius
 description: Pavaizduoti bet kokią sistemą ar darbo eigą kaip gražią interaktyvią HTML diagramą
 triggers:
   - vizualizuok šią darbo eigą

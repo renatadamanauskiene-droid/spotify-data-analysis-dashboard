@@ -1,5 +1,5 @@
 ---
-name: budget-dashboard
+name: biudzeto-skydelis
 description: Sugeneruokite interaktyvų finansinį skydelį kaip savarankišką HTML failą su Apple Swiss dizainu. Apima šliaužiklius pajamoms ir išlaidoms koreguoti realiuoju laiku, žiedinę diagramą su detalizacija, 12 mėnesių taupymo prognozę su investavimo scenarijais, etapų sekimą ir palyginimą su gairėmis. Naudokite šį įgūdį, kai naudotojas sako „biudžeto skydelis", „finansinis skydelis", „interaktyvus biudžetas", „biudžeto programa", „vizualizuok mano biudžetą", „biudžeto planuoklis", „kur dingsta mano pinigai", „taupymo skydelis" arba bet kokį variantą, kai norima vizualiai pamatyti savo finansus.
 triggers:
   - biudžeto skydelis

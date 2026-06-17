@@ -1,5 +1,5 @@
 ---
-name: visual-page-builder
+name: puslapio-kurejas
 description: Generuoti gražius, savarankiškus HTML puslapius, kurie vizualiai paaiškina bet kokią koncepciją
 triggers:
   - vizualus paaiškinimas

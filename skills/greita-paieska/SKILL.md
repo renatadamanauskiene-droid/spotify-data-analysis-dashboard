@@ -1,5 +1,5 @@
 ---
-name: quick-research
+name: greita-paieska
 description: Ištirti bet kokią temą iš kelių šaltinių ir pateikti aiškią santraukos ataskaitą
 triggers:
   - ištirk tai

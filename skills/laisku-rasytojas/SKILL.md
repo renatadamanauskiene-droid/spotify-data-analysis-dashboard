@@ -1,5 +1,5 @@
 ---
-name: email-drafter
+name: laisku-rasytojas
 description: Rašyti profesionalius el. laiškus bet kokiai situacijai — užklausoms, priminimams, derybomis, atnaujinimams
 triggers:
   - sukurk el. laišką

@@ -1,5 +1,5 @@
 ---
-name: contract-reviewer
+name: sutarciu-tikrintuvas
 description: Peržiūrėkite bet kokią sutartį ir pažymėkite, kas svarbu, prieš jai pasirašant. Naudokite šį įgūdį, kai naudotojas sako „peržiūrėk šią sutartį", „ar man tai pasirašyti", „patikrink šį susitarimą", „sutarties peržiūra", „ką sako šita sutartis", „pažymėk, kas negerai", „peržiūrėk mano nuomos sutartį", „NDA peržiūra", „freelance sutartis" arba įklijuoja sutartį, susitarimą, sąlygas ar teisinį dokumentą, kurį reikia peržiūrėti prieš pasirašant.
 ---
 

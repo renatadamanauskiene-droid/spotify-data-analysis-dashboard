@@ -1,5 +1,5 @@
 ---
-name: slide-deck-builder
+name: skaidres-kurejas
 description: Generuoti vizualias skaidrių pateiktis su turtingais komponentais
 triggers:
   - sukurk skaidrių pateiktį

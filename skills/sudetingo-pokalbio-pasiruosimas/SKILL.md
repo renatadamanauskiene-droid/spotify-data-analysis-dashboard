@@ -1,5 +1,5 @@
 ---
-name: difficult-conversation-prep
+name: sudetingo-pokalbio-pasiruosimas
 description: Pasiruoškite sudėtingiems pokalbiams su scenarijumi, pagrindinėmis mintimis ir atsakymais į tikėtinus priešiškus argumentus. Naudokite šį įgūdį, kai naudotojas sako „sudėtingas pokalbis", „nelengvas pokalbis", „rimtas pokalbis", „kaip jiems pasakyti", „man reikia pasikalbėti apie", „paruošk mane konfrontacijai", „kaip pakelti temą", „derėtis" arba bet kokį variantą, kai reikia turėti nepatogų ar didelės įtampos pokalbį.
 triggers:
   - sudėtingas pokalbis

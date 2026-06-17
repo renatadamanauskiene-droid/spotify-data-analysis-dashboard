@@ -1,5 +1,5 @@
 ---
-name: animated-website
+name: animuota-svetaine
 description: Paverskite bet kokį vaizdo įrašą prabangia, slinkimo animacijomis paremta svetaine su paralakso efektais
 triggers:
   - animuota svetainė iš šio video

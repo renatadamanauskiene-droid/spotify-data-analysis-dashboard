@@ -1,5 +1,5 @@
 ---
-name: morning-briefing
+name: ryto-apzvalga
 description: Kasdienė pramonės apžvalga su geriausiomis turinio galimybėmis ir skubumo lygiais
 triggers:
   - rytinė apžvalga
