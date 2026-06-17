@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="lt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spotify Muzikos Tendencijos</title>
+<style>
+  :root {
+    --bg: #0a0a0a;
+    --text: #ffffff;
+    --text-secondary: #a0a0a0;
+    --card: #1a1a1a;
+    --border: #2a2a2a;
+    --accent: #1ED760;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    overflow: hidden;
+    height: 100%;
+    width: 100%;
+  }
+
+  .deck {
+    height: 100vh;
+    width: 100vw;
+    position: relative;
+  }
+
+  .slide {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(20px);
+    transition: opacity 0.4s ease, transform 0.4s ease;
+  }
+
+  .slide.active {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+  }
+
+  .slide-content {
+    max-width: 900px;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 28px;
+  }
+
+  .eyebrow {
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 3px;
+    font-size: 14px;
+    font-weight: 700;
+  }
+
+  h1 {
+    font-size: 60px;
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -1px;
+  }
+
+  h2 {
+    font-size: 48px;
+    font-weight: 800;
+    line-height: 1.15;
+    letter-spacing: -0.5px;
+  }
+
+  .subtitle {
+    font-size: 26px;
+    color: var(--text-secondary);
+    font-weight: 400;
+    line-height: 1.4;
+  }
+
+  .body-text {
+    font-size: 24px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+  }
+
+  /* Kortelių tinklelis */
+  .card-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+    width: 100%;
+    margin-top: 10px;
+  }
+
+  .card-grid.cols-4 { grid-template-columns: repeat(4, 1fr); }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px 22px;
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .card .icon { font-size: 34px; }
+  .card .card-title { font-size: 20px; font-weight: 700; }
+  .card .card-desc { font-size: 16px; color: var(--text-secondary); line-height: 1.4; }
+
+  /* Statistikos akcentas */
+  .stat-callout {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .stat-number {
+    font-size: 110px;
+    font-weight: 800;
+    color: var(--accent);
+    line-height: 1;
+    letter-spacing: -2px;
+  }
+
+  .stat-label {
+    font-size: 22px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+  }
+
+  /* Metrikų suvestinė */
+  .metrics-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    width: 100%;
+  }
+
+  .metric-box {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 24px 14px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .metric-value {
+    font-size: 40px;
+    font-weight: 800;
+    color: var(--accent);
+  }
+
+  .metric-label {
+    font-size: 14px;
+    color: var(--text-secondary);
+    text-align: center;
+  }
+
+  /* Palyginimo skydelis */
+  .compare-panel {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    gap: 16px;
+  }
+
+  .compare-col {
+    flex: 1;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .compare-col.highlight {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px var(--accent) inset;
+  }
+
+  .compare-title { font-size: 20px; font-weight: 700; color: var(--text-secondary); }
+  .compare-col.highlight .compare-title { color: var(--accent); }
+  .compare-value { font-size: 30px; font-weight: 800; }
+
+  .vs-badge {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #0a0a0a;
+    font-weight: 800;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  /* Žingsnių eiga */
+  .step-flow {
+    display: flex;
+    align-items: stretch;
+    width: 100%;
+    gap: 8px;
+  }
+
+  .step {
+    flex: 1;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px 14px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    text-align: center;
+  }
+
+  .step-num {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #0a0a0a;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+  }
+
+  .step-label { font-size: 15px; font-weight: 600; }
+
+  .step-arrow {
+    color: var(--accent);
+    font-size: 22px;
+    align-self: center;
+    flex-shrink: 0;
+  }
+
+  /* Piktogramos + etiketės sąrašas */
+  .icon-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    width: 100%;
+    text-align: left;
+  }
+
+  .icon-list-item {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 20px;
+  }
+
+  .icon-list-item .icon { font-size: 28px; flex-shrink: 0; }
+  .icon-list-item .label { font-size: 19px; }
+  .icon-list-item .label strong { color: var(--accent); }
+
+  /* Citatos blokas */
+  .quote-block {
+    position: relative;
+    padding: 20px 40px;
+  }
+
+  .quote-mark {
+    font-size: 80px;
+    color: var(--accent);
+    line-height: 0.5;
+    font-weight: 800;
+  }
+
+  .quote-text {
+    font-size: 32px;
+    font-style: italic;
+    line-height: 1.4;
+    font-weight: 600;
+  }
+
+  .quote-author {
+    margin-top: 16px;
+    font-size: 18px;
+    color: var(--text-secondary);
+  }
+
+  /* Laiko skalė */
+  .timeline {
+    display: flex;
+    width: 100%;
+    position: relative;
+    padding-top: 10px;
+  }
+
+  .timeline::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--border);
+  }
+
+  .timeline-point {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    position: relative;
+  }
+
+  .timeline-dot {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--accent);
+    z-index: 1;
+    border: 3px solid var(--bg);
+  }
+
+  .timeline-year { font-size: 22px; font-weight: 800; color: var(--accent); }
+  .timeline-desc { font-size: 14px; color: var(--text-secondary); max-width: 150px; }
+
+  /* Navigacija */
+  .nav-counter {
+    position: fixed;
+    bottom: 28px;
+    right: 36px;
+    font-size: 16px;
+    color: var(--text-secondary);
+    letter-spacing: 1px;
+    z-index: 10;
+    background: rgba(26,26,26,0.7);
+    padding: 8px 16px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+  }
+
+  .nav-counter span { color: var(--accent); font-weight: 700; }
+
+  .nav-hint {
+    position: fixed;
+    bottom: 28px;
+    left: 36px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    z-index: 10;
+  }
+
+  .accent { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<div class="deck" id="deck">
+
+  <!-- 1. ANTRAŠTĖ -->
+  <section class="slide active">
+    <div class="slide-content">
+      <div class="eyebrow">Spotify Duomenų Analizė</div>
+      <h1>Muzikos Pramonės <span class="accent">Tendencijos</span></h1>
+      <p class="subtitle">Leidimų augimas, explicit turinio kilimas ir audio savybių poveikis populiarumui</p>
+      <div class="stat-callout" style="margin-top: 20px;">
+        <div class="stat-label">Pristato</div>
+        <div class="body-text" style="color: var(--text);">Renata · Power BI Dashboard projektas</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2. ĮVADAS -->
+  <section class="slide">
+    <div class="slide-content">
+      <div class="eyebrow">Kontekstas</div>
+      <h2>Kodėl Tai Svarbu?</h2>
+      <p class="body-text">Per pastarąjį dešimtmetį Spotify platforma tapo pagrindiniu muzikos vartojimo kanalu. Analizuojame, kaip kinta leidimų srautas, turinio pobūdis ir kas lemia dainos populiarumą.</p>
+      <div class="card-grid">
+        <div class="card">
+          <div class="icon">🎧</div>
+          <div class="card-title">Duomenų šaltinis</div>
+          <div class="card-desc">Kaggle Spotify duomenų rinkinys, 2023 m.</div>
+        </div>
+        <div class="card">
+          <div class="icon">📊</div>
+          <div class="card-title">Analizės metodas</div>
+          <div class="card-desc">Star schema modelis ir pažangus DAX</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. LEIDIMŲ AUGIMAS -->
+  <section class="slide">
+    <div class="slide-content">
+      <div class="eyebrow">Pagrindinis Turinys · 1</div>
+      <h2>Leidimų Skaičius Sprogimiškai Auga</h2>
+      <div class="stat-callout">
+        <div class="stat-number">+184%</div>
+        <div class="stat-label">naujų takelių leidimų augimas 2015–2023 m.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. LEIDIMŲ LAIKO SKALĖ -->
+  <section class="slide">
+    <div class="slide-content">
+      <div class="eyebrow">Pagrindinis Turinys · 2</div>
+      <h2>Leidimų Banga Per Metus</h2>
+      <div class="timeline">
+        <div class="timeline-point">
+          <div class="timeline-year">2015</div>
+          <div class="timeline-dot"></div>
+          <div class="timeline-desc">~420 tūkst. takelių</div>
+        </div>
+        <div class="timeline-point">
+          <div class="timeline-year">2018</div>
+          <div class="timeline-dot"></div>
+          <div class="timeline-desc">~690 tūkst. takelių</div>
+        </div>
+        <div class="timeline-point">
+          <div class="timeline-year">2021</div>
+          <div class="timeline-dot"></div>
+          <div class="timeline-desc">~980 tūkst. takelių</div>
+        </div>
+        <div class="timeline-point">
+          <div class="timeline-year">2023</div>
+          <div class="timeline-dot"></div>
+          <div class="timeline-desc">~1,19 mln. takelių</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5. EXPLICIT TURINYS -->
+  <section class="slide">
+    <div class="slide-content">
+      <div class="eyebrow">Pagrindinis Turinys · 3</div>
+      <h2>Explicit Turinio Kilimas</h2>
+      <div class="compare-panel">
+        <div class="compare-col">
+          <div class="compare-title">2015 m.</div>
+          <div class="compare-value">19%</div>
+          <div class="body-text" style="font-size:16px;">takelių pažymėta explicit</div>
+        </div>
+        <div class="vs-badge">VS</div>
+        <div class="compare-col highlight">
+          <div class="compare-title">2023 m.</div>
+          <div class="compare-value">38%</div>
+          <div class="body-text" style="font-size:16px;">takelių pažymėta explicit</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6. AUDIO SAVYBĖS -->
+  <section class="slide">
+    <div class="slide-content">
+      <div class="eyebrow">Pagrindinis Turinys · 4</div>
+      <h2>Kas Lemia Populiarumą?</h2>
+      <div class="card-grid cols-4">
+        <div class="card">
+          <div class="icon">⚡</div>
+          <div class="card-title">Energy</div>
+          <div class="card-desc">Stipri teigiama korelacija su populiarumu</div>
+        </div>
+        <div class="card">
+          <div class="icon">💃</div>
+          <div class="card-title">Danceability</div>
+          <div class="card-desc">Aukštas šokamumas — daugiau peržiūrų</div>
+        </div>
+        <div class="card">
+          <div class="icon">🔊</div>
+          <div class="card-title">Loudness</div>
+          <div class="card-desc">Vidutinis teigiamas poveikis</div>
+        </div>
+        <div class="card">
+          <div class="icon">🎻</div>
+          <div class="card-title">Acousticness</div>
+          <div class="card-desc">Neigiama korelacija su populiarumu</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7. AUDIO SAVYBIŲ METRIKOS -->
+  <section class="slide">
+    <div class="slide-content">
+      <div class="eyebrow">Pagrindinis Turinys · 5</div>
+      <h2>Vidutinės Hit Dainų Charakteristikos</h2>
+      <div class="metrics-row">
+        <div class="metric-box">
+          <div class="metric-value">0.71</div>
+          <div class="metric-label">Danceability</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-value">0.68</div>
+          <div class="metric-label">Energy</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-value">-5.4 dB</div>
+          <div class="metric-label">Loudness</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-value">122 BPM</div>
+          <div class="metric-label">Tempas</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 8. TOP 10 ATLIKĖJŲ PALYGINIMAS -->
+  <section class="slide">
+    <div class="slide-content">
+      <div class="eyebrow">Pagrindinis Turinys · 6</div>
+      <h2>TOP 10 Atlikėjų: Pasirinktas vs Vidurkis</h2>
+      <div class="icon-list">
+        <div class="icon-list-item">
+          <div class="icon">🥇</div>
+          <div class="label"><strong>The Weeknd</strong> — 2,4 mlrd. srautų, +61% virš vidurkio</div>
+        </div>
+        <div class="icon-list-item">
+          <div class="icon">🥈</div>
+          <div class="label"><strong>Taylor Swift</strong> — 2,1 mlrd. srautų, +48% virš vidurkio</div>
+        </div>
+        <div class="icon-list-item">
+          <div class="icon">🥉</div>
+          <div class="label"><strong>Bad Bunny</strong> — 1,9 mlrd. srautų, +39% virš vidurkio</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 9. ĮRODYMAI / PROCESAS -->
+  <section class="slide">
+    <div class="slide-content">
+      <div class="eyebrow">Įrodymai</div>
+      <h2>Kaip Gauti Šias Įžvalgas</h2>
+      <div class="step-flow">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-label">Kaggle duomenys</div>
+        </div>
+        <div class="step-arrow">→</div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-label">Star schema modelis</div>
+        </div>
+        <div class="step-arrow">→</div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-label">DAX skaičiavimai</div>
+        </div>
+        <div class="step-arrow">→</div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-label">Power BI ataskaitos</div>
+        </div>
+      </div>
+      <blockquote class="quote-block" style="margin-top: 10px;">
+        <div class="quote-mark">"</div>
+        <p class="quote-text">Drill-through analizė atskleidžia, kad atlikėjo augimas tiesiogiai koreliuoja su track energy rodikliu.</p>
+        <div class="quote-author">— Spotify_Music_Trends.pbix išvada</div>
+      </blockquote>
+    </div>
+  </section>
+
+  <!-- 10. APIBENDRINIMAS -->
+  <section class="slide">
+    <div class="slide-content">
+      <div class="eyebrow">Apibendrinimas</div>
+      <h2>Pagrindinė Žinutė</h2>
+      <p class="body-text">Leidimų skaičius auga, explicit turinys tampa norma, o energingos ir šokamos dainos dominuoja TOP sąrašuose.</p>
+      <div class="card-grid">
+        <div class="card">
+          <div class="icon">📈</div>
+          <div class="card-title">+184% leidimų</div>
+          <div class="card-desc">nuo 2015 iki 2023 m.</div>
+        </div>
+        <div class="card">
+          <div class="icon">🎚️</div>
+          <div class="card-title">Energy & Dance</div>
+          <div class="card-desc">stipriausi populiarumo prognozuotojai</div>
+        </div>
+      </div>
+      <p class="subtitle" style="margin-top: 10px;">Atidaryk <span class="accent">Spotify_Music_Trends.pbix</span> ir tyrinėk pats.</p>
+    </div>
+  </section>
+
+</div>
+
+<div class="nav-counter"><span id="current">1</span> / <span id="total">10</span></div>
+<div class="nav-hint">Naudok ← → rodyklių klavišus</div>
+
+<script>
+  const slides = document.querySelectorAll('.slide');
+  const total = slides.length;
+  let current = 0;
+
+  document.getElementById('total').textContent = total;
+
+  function showSlide(index) {
+    if (index < 0 || index >= total) return;
+    slides[current].classList.remove('active');
+    current = index;
+    slides[current].classList.add('active');
+    document.getElementById('current').textContent = current + 1;
+  }
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ') {
+      e.preventDefault();
+      showSlide(current + 1);
+    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      showSlide(current - 1);
+    }
+  });
+
+  document.addEventListener('click', function () {
+    showSlide(current + 1 >= total ? current : current + 1);
+  });
+</script>
+
+</body>
+</html>

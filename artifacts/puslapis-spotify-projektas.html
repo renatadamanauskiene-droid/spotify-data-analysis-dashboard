@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="lt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spotify Music Trends — Power BI Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0f0f10;
+    --surface:#1a1a1d;
+    --surface-border:#2a2a2d;
+    --text:#ffffff;
+    --text-secondary:#a0a0a0;
+    --accent:#D97757;
+    --accent-dim:rgba(217,119,87,0.15);
+    --maxw:1000px;
+    --radius:12px;
+    --section-gap:80px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html{scroll-behavior:smooth;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Inter', system-ui, sans-serif;
+    line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 24px;}
+  section{padding:var(--section-gap) 0;}
+  section + section{border-top:1px solid var(--surface-border);}
+
+  /* HERO */
+  .hero{
+    padding-top:110px;
+    padding-bottom:var(--section-gap);
+    text-align:center;
+  }
+  .badge{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    background:var(--accent-dim);
+    color:var(--accent);
+    border:1px solid rgba(217,119,87,0.35);
+    border-radius:999px;
+    padding:6px 16px;
+    font-size:13px;
+    font-weight:600;
+    letter-spacing:0.02em;
+    margin-bottom:28px;
+  }
+  .hero h1{
+    font-size:clamp(36px, 6vw, 56px);
+    font-weight:800;
+    letter-spacing:-0.02em;
+    line-height:1.1;
+    margin-bottom:20px;
+  }
+  .hero h1 span{color:var(--accent);}
+  .hero p.lead{
+    color:var(--text-secondary);
+    font-size:19px;
+    max-width:680px;
+    margin:0 auto 36px;
+  }
+  .hero-actions{display:flex;justify-content:center;gap:14px;flex-wrap:wrap;}
+  .btn{
+    display:inline-block;
+    padding:14px 28px;
+    border-radius:10px;
+    font-weight:600;
+    font-size:15px;
+    text-decoration:none;
+    transition:transform .15s ease, opacity .15s ease;
+  }
+  .btn:hover{transform:translateY(-2px);}
+  .btn-primary{background:var(--accent);color:#1a1108;}
+  .btn-secondary{background:var(--surface);color:var(--text);border:1px solid var(--surface-border);}
+
+  .section-head{margin-bottom:40px;}
+  .section-tag{
+    color:var(--accent);
+    font-size:13px;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:0.08em;
+    margin-bottom:10px;
+  }
+  .section-head h2{
+    font-size:clamp(26px, 4vw, 34px);
+    font-weight:700;
+    letter-spacing:-0.01em;
+    margin-bottom:12px;
+  }
+  .section-head p{color:var(--text-secondary);font-size:16px;max-width:620px;}
+
+  /* STATS */
+  .stats-row{
+    display:grid;
+    grid-template-columns:repeat(4, 1fr);
+    gap:16px;
+  }
+  .stat-card{
+    background:var(--surface);
+    border:1px solid var(--surface-border);
+    border-radius:var(--radius);
+    padding:28px 20px;
+    text-align:center;
+  }
+  .stat-number{
+    font-size:34px;
+    font-weight:800;
+    color:var(--accent);
+    margin-bottom:6px;
+    letter-spacing:-0.02em;
+  }
+  .stat-label{color:var(--text-secondary);font-size:13.5px;}
+
+  /* FEATURE GRID */
+  .feature-grid{
+    display:grid;
+    grid-template-columns:repeat(2, 1fr);
+    gap:20px;
+  }
+  .feature-card{
+    background:var(--surface);
+    border:1px solid var(--surface-border);
+    border-radius:var(--radius);
+    padding:28px;
+  }
+  .feature-icon{
+    width:44px;height:44px;
+    display:flex;align-items:center;justify-content:center;
+    background:var(--accent-dim);
+    border-radius:10px;
+    font-size:22px;
+    margin-bottom:18px;
+  }
+  .feature-card h3{font-size:17px;font-weight:700;margin-bottom:8px;}
+  .feature-card p{color:var(--text-secondary);font-size:14.5px;}
+
+  /* PROCESS STEPS */
+  .steps{display:flex;flex-direction:column;gap:0;}
+  .step{
+    display:flex;
+    gap:20px;
+    padding:24px 0;
+    position:relative;
+  }
+  .step:not(:last-child)::before{
+    content:'';
+    position:absolute;
+    left:21px;
+    top:60px;
+    bottom:-4px;
+    width:2px;
+    background:var(--surface-border);
+  }
+  .step-num{
+    flex-shrink:0;
+    width:44px;height:44px;
+    border-radius:50%;
+    background:var(--accent);
+    color:#1a1108;
+    display:flex;align-items:center;justify-content:center;
+    font-weight:800;
+    font-size:16px;
+    z-index:1;
+  }
+  .step-content h3{font-size:16.5px;font-weight:700;margin-bottom:6px;}
+  .step-content p{color:var(--text-secondary);font-size:14.5px;}
+
+  /* TOOLS / SOFTWARE */
+  .tools-grid{
+    display:grid;
+    grid-template-columns:repeat(3, 1fr);
+    gap:18px;
+  }
+  .tool-card{
+    background:var(--surface);
+    border:1px solid var(--surface-border);
+    border-radius:var(--radius);
+    padding:24px;
+    text-align:center;
+  }
+  .tool-emoji{font-size:30px;margin-bottom:12px;}
+  .tool-card h3{font-size:15px;font-weight:700;margin-bottom:4px;}
+  .tool-card p{color:var(--text-secondary);font-size:13px;}
+
+  /* CALLOUT */
+  .callout{
+    border-left:3px solid var(--accent);
+    background:var(--surface);
+    border-radius:var(--radius);
+    padding:24px 28px;
+    display:flex;
+    gap:16px;
+    align-items:flex-start;
+  }
+  .callout-icon{font-size:22px;}
+  .callout p{color:var(--text-secondary);font-size:15px;}
+  .callout strong{color:var(--text);}
+
+  /* AUTHOR */
+  .author-card{
+    background:var(--surface);
+    border:1px solid var(--surface-border);
+    border-radius:var(--radius);
+    padding:36px;
+    display:flex;
+    align-items:center;
+    gap:22px;
+  }
+  .author-avatar{
+    width:64px;height:64px;
+    border-radius:50%;
+    background:var(--accent);
+    color:#1a1108;
+    display:flex;align-items:center;justify-content:center;
+    font-weight:800;
+    font-size:24px;
+    flex-shrink:0;
+  }
+  .author-info h3{font-size:19px;font-weight:700;margin-bottom:4px;}
+  .author-info p{color:var(--text-secondary);font-size:14.5px;}
+
+  footer{
+    text-align:center;
+    padding:40px 0 60px;
+    color:var(--text-secondary);
+    font-size:13.5px;
+  }
+
+  @media (max-width: 720px){
+    .stats-row{grid-template-columns:repeat(2, 1fr);}
+    .feature-grid{grid-template-columns:1fr;}
+    .tools-grid{grid-template-columns:1fr;}
+    .author-card{flex-direction:column;text-align:center;}
+    section{padding:56px 0;}
+    .hero{padding-top:72px;}
+  }
+
+  [data-animate]{
+    opacity:0;
+    transform:translateY(16px);
+    transition:opacity .6s ease, transform .6s ease;
+  }
+  [data-animate].is-visible{
+    opacity:1;
+    transform:translateY(0);
+  }
+</style>
+</head>
+<body>
+
+  <section class="hero">
+    <div class="wrap">
+      <span class="badge">🎧 Power BI projektas</span>
+      <h1>Spotify <span>Music Trends</span><br>analizės skydelis</h1>
+      <p class="lead">
+        Interaktyvus Power BI dashboard, atskleidžiantis Spotify muzikos pramonės tendencijas:
+        nuo įrašų augimo ir eksplicitinio turinio populiarėjimo iki garso savybių įtakos sėkmei
+        ir TOP atlikėjų palyginimo.
+      </p>
+      <div class="hero-actions">
+        <a href="#funkcionalumas" class="btn btn-primary">Žiūrėti funkcionalumą</a>
+        <a href="#programine-iranga" class="btn btn-secondary">Reikalinga programinė įranga</a>
+      </div>
+    </div>
+  </section>
+
+  <section id="apzvalga">
+    <div class="wrap">
+      <div class="section-head" data-animate>
+        <div class="section-tag">Projekto apžvalga</div>
+        <h2>Duomenys, paversti įžvalgomis</h2>
+        <p>Pagrindiniai skaičiai, atspindintys projekto apimtį ir analizės gylį.</p>
+      </div>
+      <div class="stats-row" data-animate>
+        <div class="stat-card">
+          <div class="stat-number">2023</div>
+          <div class="stat-label">Kaggle duomenų rinkinio metai</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number">10</div>
+          <div class="stat-label">TOP atlikėjų palyginimas</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number">5+</div>
+          <div class="stat-label">Interaktyvūs slicers filtrai</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number">1</div>
+          <div class="stat-label">Žvaigždės schema (star schema)</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="funkcionalumas">
+    <div class="wrap">
+      <div class="section-head" data-animate>
+        <div class="section-tag">Funkcionalumas</div>
+        <h2>Kas yra šiame dashboard'e</h2>
+        <p>Pilnas analitinis rinkinys, pagrįstas pažangiomis DAX skaičiavimo formulėmis ir žvaigždės schemos duomenų modeliu.</p>
+      </div>
+      <div class="feature-grid" data-animate>
+        <div class="feature-card">
+          <div class="feature-icon">📊</div>
+          <h3>Interaktyvūs grafikai</h3>
+          <p>Dinamiškos diagramos, atspindinčios įrašų augimą, eksplicitinio turinio dažnį ir garso savybių (energy, danceability, tempo) įtaką populiarumui.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🎛️</div>
+          <h3>Slicers filtrai</h3>
+          <p>Filtruok duomenis pagal metus, žanrą, atlikėją ar dainą — visi vizualai atsinaujina automatiškai pagal pasirinkimą.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">📈</div>
+          <h3>KPI rodikliai</h3>
+          <p>Pagrindiniai veiklos rodikliai su dinamišku filtravimu, leidžiantys greitai įvertinti bendrą tendencijų vaizdą.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🏆</div>
+          <h3>TOP 10 atlikėjų palyginimas</h3>
+          <p>Pasirinkto atlikėjo rodikliai lyginami su vidurkiu — akivaizdu, kuo jis išsiskiria iš TOP 10 sąrašo.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🔍</div>
+          <h3>Drill-through analizė</h3>
+          <p>Detalus atlikėjo profilis atskirame puslapyje — pereinama tiesiai iš pagrindinės ataskaitos vienu paspaudimu.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🧮</div>
+          <h3>Pažangios DAX formulės</h3>
+          <p>Skaičiavimai paremti žvaigždės schemos duomenų modeliu, optimizuotu greitai ir tikslia analize.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="eiga">
+    <div class="wrap">
+      <div class="section-head" data-animate>
+        <div class="section-tag">Kaip naudotis</div>
+        <h2>Nuo atsisiuntimo iki analizės</h2>
+        <p>Keturi žingsniai, kad pradėtumėte tyrinėti Spotify duomenis.</p>
+      </div>
+      <div class="steps" data-animate>
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <h3>Atsisiųsk failą</h3>
+            <p>Parsisiųsk <strong>Spotify_Music_Trends.pbix</strong> dashboard failą iš projekto saugyklos.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <h3>Atidaryk Power BI Desktop</h3>
+            <p>Atverk failą su Power BI Desktop programa savo kompiuteryje.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <h3>Naudok filtrus ir slicers</h3>
+            <p>Tyrinėk duomenis filtruodamas pagal metus, žanrą, atlikėją ar dainą.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-content">
+            <h3>Naršyk per puslapius</h3>
+            <p>Naudokis žymėmis (bookmarks) ir drill-through puslapiais detalesnei atlikėjų analizei.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="programine-iranga">
+    <div class="wrap">
+      <div class="section-head" data-animate>
+        <div class="section-tag">Reikalavimai</div>
+        <h2>Reikalinga programinė įranga</h2>
+        <p>Tik viena pagrindinė priemonė ir originalus duomenų rinkinys.</p>
+      </div>
+      <div class="tools-grid" data-animate>
+        <div class="tool-card">
+          <div class="tool-emoji">💻</div>
+          <h3>Power BI Desktop</h3>
+          <p>Nemokama Microsoft programa ataskaitoms peržiūrėti ir redaguoti.</p>
+        </div>
+        <div class="tool-card">
+          <div class="tool-emoji">🗂️</div>
+          <h3>Kaggle duomenų rinkinys</h3>
+          <p>Spotify dataset 2023 (CSV failai) — pirminis duomenų šaltinis.</p>
+        </div>
+        <div class="tool-card">
+          <div class="tool-emoji">🪟</div>
+          <h3>Windows arba macOS</h3>
+          <p>Operacinė sistema, suderinama su Power BI Desktop aplikacija.</p>
+        </div>
+      </div>
+
+      <div style="height:24px;"></div>
+
+      <div class="callout" data-animate>
+        <div class="callout-icon">💡</div>
+        <p><strong>Patarimas:</strong> duomenų šaltinis yra viešas Kaggle rinkinys
+        „Spotify Dataset 2023“ (tonygordonjr). Atsisiųsk CSV failus ir importuok juos
+        į Power BI prieš atidarydamas .pbix ataskaitą, kad ryšiai su duomenimis būtų teisingi.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="autorius">
+    <div class="wrap">
+      <div class="section-head" data-animate>
+        <div class="section-tag">Autorius</div>
+        <h2>Kas sukūrė šį projektą</h2>
+      </div>
+      <div class="author-card" data-animate>
+        <div class="author-avatar">R</div>
+        <div class="author-info">
+          <h3>Renata</h3>
+          <p>Spotify Music Trends Power BI dashboard projekto autorė — duomenų modeliavimas, DAX skaičiavimai ir vizualizacijų kūrimas.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="wrap">
+      Spotify Music Trends · Power BI duomenų analizės projektas
+    </div>
+  </footer>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    var items = document.querySelectorAll('[data-animate]');
+    if (!('IntersectionObserver' in window)) {
+      items.forEach(function (el) { el.classList.add('is-visible'); });
+      return;
+    }
+    var observer = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('is-visible');
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.15 });
+    items.forEach(function (el) { observer.observe(el); });
+  });
+</script>
+
+</body>
+</html>

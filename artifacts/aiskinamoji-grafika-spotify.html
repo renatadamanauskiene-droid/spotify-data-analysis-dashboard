@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="lt">
+<head>
+<meta charset="UTF-8">
+<title>Spotify Dashboard — kaip veikia DJ pultas duomenims</title>
+<style>
+  :root{
+    --bg:#0b0f1a;
+    --panel:#121a2b;
+    --accent:#1DB954;
+    --accent2:#1ED760;
+    --pink:#ff4d8d;
+    --text:#f5f7fa;
+    --muted:#9aa6b8;
+    --gold:#ffd166;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:radial-gradient(circle at 20% 0%, #16213a 0%, var(--bg) 55%);
+    font-family:'Segoe UI', Arial, sans-serif;
+    color:var(--text);
+  }
+  .canvas{
+    max-width:1080px;
+    margin:0 auto;
+    padding:40px 32px 60px;
+  }
+  .title{
+    text-align:center;
+    font-size:30px;
+    font-weight:800;
+    line-height:1.3;
+    margin-bottom:6px;
+    background:linear-gradient(90deg, var(--accent2), var(--gold));
+    -webkit-background-clip:text;
+    background-clip:text;
+    color:transparent;
+  }
+  .subtitle{
+    text-align:center;
+    color:var(--muted);
+    font-size:15px;
+    margin-bottom:34px;
+  }
+  .analogy-banner{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    background:linear-gradient(135deg, rgba(29,185,84,0.18), rgba(255,77,141,0.12));
+    border:1px solid rgba(29,185,84,0.4);
+    border-radius:16px;
+    padding:16px 20px;
+    margin-bottom:38px;
+  }
+  .analogy-banner .emoji{font-size:40px;}
+  .analogy-banner .txt b{color:var(--accent2);}
+  .analogy-banner .txt{font-size:14.5px; color:var(--text); line-height:1.5;}
+
+  .section-label{
+    display:inline-block;
+    font-size:12px;
+    letter-spacing:1.5px;
+    text-transform:uppercase;
+    color:var(--gold);
+    font-weight:700;
+    margin-bottom:10px;
+  }
+
+  /* STAR SCHEMA */
+  .star-wrap{
+    position:relative;
+    background:var(--panel);
+    border-radius:20px;
+    padding:34px 20px 30px;
+    margin-bottom:40px;
+    border:1px solid rgba(255,255,255,0.06);
+  }
+  .star-grid{
+    position:relative;
+    display:grid;
+    grid-template-columns:1fr 1fr 1fr;
+    grid-template-rows:auto auto auto;
+    gap:16px;
+    align-items:center;
+    justify-items:center;
+  }
+  .crate{
+    grid-column:2;
+    grid-row:1;
+  }
+  .dim-left-top{grid-column:1; grid-row:1;}
+  .dim-left-bot{grid-column:1; grid-row:3;}
+  .dim-right-top{grid-column:3; grid-row:1;}
+  .dim-right-bot{grid-column:3; grid-row:3;}
+  .fact-center{
+    grid-column:2;
+    grid-row:2;
+  }
+
+  .card{
+    border-radius:14px;
+    padding:14px 16px;
+    text-align:center;
+    width:100%;
+    min-height:74px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    box-shadow:0 6px 16px rgba(0,0,0,0.35);
+  }
+  .card .ic{font-size:22px; margin-bottom:4px;}
+  .card .label{font-weight:700; font-size:13.5px;}
+  .card .sub{font-size:11px; color:rgba(255,255,255,0.75); margin-top:2px;}
+
+  .dim-card{
+    background:linear-gradient(135deg, #1a2740, #0f1726);
+    border:1px solid rgba(29,185,84,0.35);
+    color:var(--text);
+  }
+  .fact-card{
+    background:linear-gradient(135deg, var(--accent), #128a3e);
+    border:1px solid rgba(255,255,255,0.25);
+    color:#06140b;
+    min-height:100px;
+    font-size:14px;
+  }
+  .fact-card .label{font-size:16px;}
+
+  .star-caption{
+    text-align:center;
+    color:var(--muted);
+    font-size:13px;
+    margin-top:18px;
+    line-height:1.5;
+  }
+  .star-caption b{color:var(--accent2);}
+
+  /* CONSOLE / DJ PULTAS — central spinduliai layout */
+  .console{
+    background:var(--panel);
+    border-radius:20px;
+    padding:34px 22px;
+    margin-bottom:40px;
+    border:1px solid rgba(255,255,255,0.06);
+  }
+  .console-hub{
+    text-align:center;
+    margin:0 auto 30px;
+    width:230px;
+    padding:20px;
+    border-radius:50%;
+    background:radial-gradient(circle, #1a2b22, #0c1410);
+    border:3px solid var(--accent2);
+    box-shadow:0 0 35px rgba(29,185,84,0.35);
+  }
+  .console-hub .ic{font-size:34px;}
+  .console-hub .label{font-weight:800; font-size:15px; margin-top:4px;}
+  .console-hub .sub{font-size:11.5px; color:var(--muted); margin-top:4px;}
+
+  .spokes{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:18px;
+  }
+  .spoke{
+    background:#0f1726;
+    border:1px solid rgba(255,255,255,0.08);
+    border-left:4px solid var(--accent2);
+    border-radius:12px;
+    padding:14px 16px;
+    position:relative;
+  }
+  .spoke.pink{border-left-color:var(--pink);}
+  .spoke.gold{border-left-color:var(--gold);}
+  .spoke .ic{font-size:24px;}
+  .spoke .label{font-weight:700; font-size:14px; margin:6px 0 4px;}
+  .spoke .txt{font-size:12.5px; color:var(--muted); line-height:1.45;}
+
+  /* FLOW STEPS - vartotojo sąveika */
+  .flow{
+    background:var(--panel);
+    border-radius:20px;
+    padding:30px 22px;
+    margin-bottom:40px;
+    border:1px solid rgba(255,255,255,0.06);
+  }
+  .step{
+    display:flex;
+    gap:16px;
+    align-items:flex-start;
+    padding:14px 0;
+    border-bottom:1px dashed rgba(255,255,255,0.1);
+  }
+  .step:last-child{border-bottom:none;}
+  .step-num{
+    flex:0 0 38px;
+    height:38px;
+    border-radius:50%;
+    background:linear-gradient(135deg, var(--accent2), var(--accent));
+    color:#06140b;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-weight:800;
+    font-size:16px;
+  }
+  .step-body .ic{font-size:18px; margin-right:6px;}
+  .step-title{font-weight:700; font-size:14.5px;}
+  .step-desc{font-size:12.8px; color:var(--muted); margin-top:3px; line-height:1.5;}
+  .arrow-down{
+    text-align:center;
+    color:var(--accent2);
+    font-size:18px;
+    margin:2px 0;
+  }
+
+  /* KEY INSIGHT */
+  .insight{
+    background:linear-gradient(135deg, #ffd166, #ff9f43);
+    color:#241500;
+    border-radius:18px;
+    padding:22px 26px;
+    text-align:center;
+    font-weight:800;
+    font-size:17px;
+    line-height:1.5;
+    box-shadow:0 10px 30px rgba(255,159,67,0.35);
+    border:2px solid #fff3d6;
+  }
+  .insight .ic{font-size:26px; display:block; margin-bottom:8px;}
+
+  .legend{
+    display:flex;
+    justify-content:center;
+    gap:22px;
+    margin-top:18px;
+    flex-wrap:wrap;
+    font-size:12px;
+    color:var(--muted);
+  }
+  .legend span{display:flex; align-items:center; gap:6px;}
+  .dot{width:10px; height:10px; border-radius:50%; display:inline-block;}
+
+  .footer{
+    text-align:center;
+    color:var(--muted);
+    font-size:11.5px;
+    margin-top:30px;
+  }
+</style>
+</head>
+<body>
+<div class="canvas">
+
+  <div class="title">Spotify Dashboard — kaip DJ pultas, valdantis muzikos duomenis</div>
+  <div class="subtitle">Spotify_Music_Trends.pbix paaiškinta per DJ mikšerio pulto analogiją</div>
+
+  <div class="analogy-banner">
+    <div class="emoji">🎚️</div>
+    <div class="txt">
+      <b>Analogija:</b> Power BI dashboard'as veikia kaip <b>DJ pultas</b> klube. Plokštelių dėžė (Kaggle duomenys) sutvarkyta į takelius ir albumus (žvaigždės schema). DJ pultas turi rankenėles takeliui rinktis (slicers), garsumo matuoklius (KPI), du grotuvus palyginimui (TOP 10), ausines slaptam pasiklausymui (drill-through) ir atminties mygtukus mėgstamiems nustatymams (bookmarks).
+    </div>
+  </div>
+
+  <!-- STAR SCHEMA -->
+  <div class="star-wrap">
+    <span class="section-label">🗄️ Duomenų pagrindas</span>
+    <div class="star-grid">
+      <div class="dim-left-top card dim-card">
+        <div class="ic">🧑‍🎤</div>
+        <div class="label">Dim_Artist</div>
+        <div class="sub">atlikėjo plokštelių lentyna</div>
+      </div>
+      <div class="dim-right-top card dim-card">
+        <div class="ic">🎼</div>
+        <div class="label">Dim_Genre</div>
+        <div class="sub">muzikos stilių lentynos</div>
+      </div>
+
+      <div class="fact-center card fact-card">
+        <div class="ic">💿</div>
+        <div class="label">Fact_Tracks</div>
+        <div class="sub">kiekvienas takelis: streams, popularity, energy, BPM, danceability</div>
+      </div>
+
+      <div class="dim-left-bot card dim-card">
+        <div class="ic">📅</div>
+        <div class="label">Dim_Date / Year</div>
+        <div class="sub">plokštelių išleidimo kalendorius</div>
+      </div>
+      <div class="dim-right-bot card dim-card">
+        <div class="ic">🎵</div>
+        <div class="label">Dim_Track</div>
+        <div class="sub">paties takelio etiketė</div>
+      </div>
+    </div>
+    <div class="star-caption">
+      Kaip plokštelių dėžėje viskas surūšiuota pagal <b>atlikėją, žanrą, metus ir takelį</b> — taip ir žvaigždės schemoje
+      keturios <b>dimensijų lentelės</b> aplink centrinę <b>faktų lentelę</b> leidžia greitai filtruoti milijonus įrašų
+      iš Kaggle „Spotify 2023" duomenų rinkinio.
+    </div>
+  </div>
+
+  <!-- CONSOLE / CENTRAS SU SPINDULIAIS -->
+  <div class="console">
+    <span class="section-label">🎚️ DJ pultas — dashboard'o elementai</span>
+    <div class="console-hub">
+      <div class="ic">🎛️</div>
+      <div class="label">Spotify_Music_Trends.pbix</div>
+      <div class="sub">centrinis valdymo skydas</div>
+    </div>
+
+    <div class="spokes">
+      <div class="spoke">
+        <div class="ic">🎚️</div>
+        <div class="label">Rankenėlės (Slicers)</div>
+        <div class="txt">Year, Genre, Artist, Track filtrai — kaip EQ rankenėlės, pritaikančios visą pultą prie pasirinkto skambesio.</div>
+      </div>
+      <div class="spoke pink">
+        <div class="ic">📟</div>
+        <div class="label">Matuokliai (KPI)</div>
+        <div class="txt">Streams, vidutinis popularity, takelių skaičius — kaip garsumo / BPM ekranėliai, rodantys situaciją realiu laiku.</div>
+      </div>
+      <div class="spoke gold">
+        <div class="ic">🎧</div>
+        <div class="label">Du grotuvai (TOP 10 palyginimas)</div>
+        <div class="txt">Pasirinktas atlikėjas vs vidurkis — kaip A/B grotuvai, kuriuose DJ lygina du takelius prieš mix'ą.</div>
+      </div>
+      <div class="spoke">
+        <div class="ic">🔍</div>
+        <div class="label">Ausinės (Drill-through)</div>
+        <div class="txt">Paspaudus atlikėją — pereinama į detalų puslapį, kaip DJ per ausines tyliai patikrina takelį prieš leisdamas visiems.</div>
+      </div>
+      <div class="spoke pink">
+        <div class="ic">⭐</div>
+        <div class="label">Atminties mygtukai (Bookmarks)</div>
+        <div class="txt">Išsaugotos peržiūros / navigacija tarp puslapių — kaip DJ pulto preset mygtukai greitam scenos pakeitimui.</div>
+      </div>
+      <div class="spoke gold">
+        <div class="ic">📊</div>
+        <div class="label">Trendų vizualai</div>
+        <div class="txt">Išleidimo augimas, explicit turinio kilimas per metus — kaip waveform ekranas, rodantis takelio ritmo kreivę laike.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- VARTOTOJO SĄVEIKOS ŽINGSNIAI -->
+  <div class="flow">
+    <span class="section-label">🧭 Kaip vartotojas „groja" dashboard'u</span>
+
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <div class="step-title"><span class="ic">📂</span>Atidaromas .pbix failas Power BI Desktop programoje</div>
+        <div class="step-desc">Tarsi DJ atvyksta į klubą ir įjungia pultą — užkraunama visa žvaigždės schema su Kaggle duomenimis.</div>
+      </div>
+    </div>
+    <div class="arrow-down">⬇</div>
+
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <div class="step-title"><span class="ic">🎚️</span>Pasirenkami filtrai: Year, Genre, Artist, Track</div>
+        <div class="step-desc">DJ pasuka rankenėles — visi grafikai ir KPI tuoj pat persiskaičiuoja pagal pasirinktą „skambesį".</div>
+      </div>
+    </div>
+    <div class="arrow-down">⬇</div>
+
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <div class="step-title"><span class="ic">📈</span>Stebimi KPI ir TOP 10 atlikėjų palyginimas</div>
+        <div class="step-desc">Žvilgsnis į matuoklius ir du grotuvus — palyginama, kaip pasirinktas atlikėjas atrodo prieš vidurkį.</div>
+      </div>
+    </div>
+    <div class="arrow-down">⬇</div>
+
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-body">
+        <div class="step-title"><span class="ic">🔍</span>Drill-through į detalią atlikėjo analizę</div>
+        <div class="step-desc">Paspaudus dešiniu klavišu ant atlikėjo — DJ užsidengia ausinėmis ir gilinasi į takelio detales atskirame puslapyje.</div>
+      </div>
+    </div>
+    <div class="arrow-down">⬇</div>
+
+    <div class="step">
+      <div class="step-num">5</div>
+      <div class="step-body">
+        <div class="step-title"><span class="ic">⭐</span>Navigacija per bookmarks</div>
+        <div class="step-desc">Spaudžiami preset mygtukai — akimirksniu peršokama tarp paruoštų scenų / puslapių, neperkraunant visko iš naujo.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="insight">
+    <span class="ic">💡</span>
+    Žvaigždės schema yra plokštelių dėžė, o slicers, KPI, TOP 10, drill-through ir bookmarks —
+    tai DJ pulto rankenėlės, ekranai, grotuvai, ausinės ir preset'ai, kurie kartu leidžia
+    vienu prisilietimu „suvaldyti" tūkstančius Spotify takelių.
+  </div>
+
+  <div class="legend">
+    <span><span class="dot" style="background:var(--accent2)"></span>Dimensijų / valdymo elementai</span>
+    <span><span class="dot" style="background:var(--pink)"></span>Palyginimo / detalizacijos elementai</span>
+    <span><span class="dot" style="background:var(--gold)"></span>Pagrindinė įžvalga / trendai</span>
+  </div>
+
+  <div class="footer">Aiškinamoji grafika · Spotify_Music_Trends.pbix · Duomenų šaltinis: Kaggle „Spotify Dataset 2023"</div>
+</div>
+</body>
+</html>

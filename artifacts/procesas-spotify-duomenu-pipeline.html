@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="lt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spotify Duomenų Pipeline — Proceso Diagrama</title>
+<style>
+  :root{
+    --bg:#0f0f0f; --panel:#161616; --text:#ffffff; --sub:#888888; --line:#444444;
+    --trigger-bg:#1e3a5f; --trigger-border:#3B82F6;
+    --proc-bg:#1a3d2e; --proc-border:#10B981;
+    --tool-bg:#3d2e1a; --tool-border:#F59E0B;
+    --output-bg:#3d1a1a; --output-border:#EF4444;
+    --store-bg:#1a1a2e; --store-border:#6366F1;
+    --decision-bg:#2e1a3d; --decision-border:#A855F7;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; padding:0; background:var(--bg); color:var(--text);
+    font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  header{
+    padding:32px 24px 16px; text-align:center;
+  }
+  header h1{
+    margin:0 0 8px; font-size:28px; letter-spacing:.3px;
+  }
+  header p{
+    margin:0; color:var(--sub); font-size:14px; max-width:780px; margin-left:auto; margin-right:auto;
+  }
+  .legend{
+    display:flex; flex-wrap:wrap; gap:14px; justify-content:center; padding:18px 24px 4px;
+  }
+  .legend-item{
+    display:flex; align-items:center; gap:8px; font-size:12px; color:var(--sub);
+  }
+  .swatch{
+    width:14px; height:14px; border-radius:4px; display:inline-block; border:2px solid;
+  }
+  #diagram-wrapper{
+    width:100%; overflow-x:auto; padding:24px 24px 48px;
+  }
+  #canvas{
+    position:relative; margin:0 auto; background:var(--panel); border-radius:16px;
+    padding:40px 40px 60px; min-width:1700px;
+  }
+  svg#connections{
+    position:absolute; top:0; left:0; pointer-events:none;
+  }
+  .row-label{
+    position:absolute; left:-6px; font-size:11px; color:var(--sub); text-transform:uppercase;
+    letter-spacing:1px; writing-mode:vertical-rl; transform:rotate(180deg);
+  }
+  .node{
+    position:absolute; min-width:160px; max-width:190px; border-radius:12px; padding:16px 18px;
+    border:2px solid; cursor:pointer; transition:transform .18s ease, box-shadow .18s ease, opacity .18s ease;
+    z-index:2; background-clip:padding-box;
+  }
+  .node:hover, .node.active{
+    transform:scale(1.06);
+    box-shadow:0 0 22px 2px currentColor;
+  }
+  .node.dim{
+    opacity:.25;
+  }
+  .node .icon{
+    font-size:22px; margin-bottom:6px; display:block;
+  }
+  .node .label{
+    font-weight:700; font-size:13.5px; margin-bottom:4px; line-height:1.25;
+  }
+  .node .sub{
+    font-size:11.5px; color:var(--sub); line-height:1.35;
+  }
+  .node .step-num{
+    position:absolute; top:-12px; left:-12px; width:26px; height:26px; border-radius:50%;
+    background:#000; border:2px solid currentColor; display:flex; align-items:center; justify-content:center;
+    font-size:12px; font-weight:700; color:#fff;
+  }
+  .trigger{ background:var(--trigger-bg); border-color:var(--trigger-border); color:var(--trigger-border); }
+  .proc{ background:var(--proc-bg); border-color:var(--proc-border); color:var(--proc-border); }
+  .tool{ background:var(--tool-bg); border-color:var(--tool-border); color:var(--tool-border); }
+  .output{ background:var(--output-bg); border-color:var(--output-border); color:var(--output-border); }
+  .store{ background:var(--store-bg); border-color:var(--store-border); color:var(--store-border); }
+  .decision{ background:var(--decision-bg); border-color:var(--decision-border); color:var(--decision-border); }
+
+  .tooltip{
+    position:fixed; pointer-events:none; background:#000; border:1px solid #555; border-radius:8px;
+    padding:10px 14px; font-size:12px; color:#fff; max-width:260px; z-index:50; opacity:0; transition:opacity .12s;
+    box-shadow:0 8px 24px rgba(0,0,0,.5);
+  }
+  .tooltip.show{ opacity:1; }
+
+  footer{
+    text-align:center; padding:18px 24px 40px; color:var(--sub); font-size:11.5px;
+  }
+
+  @media (max-width:900px){
+    #canvas{ min-width:1700px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🎧 Spotify Duomenų Analizės Pipeline</h1>
+  <p>Nuo Kaggle duomenų rinkinio parsisiuntimo iki interaktyvaus Power BI dashboard'o naudojimo — visas duomenų kelias per žvaigždės schemą, DAX skaičiavimus, vizualizacijas ir drill-through analizę.</p>
+</header>
+
+<div class="legend">
+  <div class="legend-item"><span class="swatch" style="background:var(--trigger-bg);border-color:var(--trigger-border);"></span>Trigeris</div>
+  <div class="legend-item"><span class="swatch" style="background:var(--proc-bg);border-color:var(--proc-border);"></span>Apdorojimas</div>
+  <div class="legend-item"><span class="swatch" style="background:var(--tool-bg);border-color:var(--tool-border);"></span>Įrankis / Paslauga</div>
+  <div class="legend-item"><span class="swatch" style="background:var(--output-bg);border-color:var(--output-border);"></span>Išvestis</div>
+  <div class="legend-item"><span class="swatch" style="background:var(--store-bg);border-color:var(--store-border);"></span>Duomenų Saugykla</div>
+  <div class="legend-item"><span class="swatch" style="background:var(--decision-bg);border-color:var(--decision-border);"></span>Sprendimas</div>
+</div>
+
+<div id="diagram-wrapper">
+  <div id="canvas">
+    <svg id="connections" width="1640" height="760"></svg>
+
+    <!-- Row Y coordinates: row1=40, row2=230, row3=420, row4=610 -->
+
+    <!-- 1. Trigger -->
+    <div class="node trigger" data-id="n1" style="top:40px; left:0px;">
+      <span class="step-num">1</span>
+      <span class="icon">⚡</span>
+      <div class="label">Kaggle duomenų rinkinys</div>
+      <div class="sub">Naudotojas inicijuoja analizę parsisiunčiant „Spotify Dataset 2023" CSV failą iš Kaggle</div>
+    </div>
+
+    <!-- 2. Process: CSV parsing -->
+    <div class="node proc" data-id="n2" style="top:40px; left:220px;">
+      <span class="step-num">2</span>
+      <span class="icon">🧹</span>
+      <div class="label">CSV importas ir valymas</div>
+      <div class="sub">Power Query įkelia žaliavinius CSV duomenis, šalina dublikatus ir tuščias reikšmes</div>
+    </div>
+
+    <!-- 3. Tool: Power Query -->
+    <div class="node tool" data-id="n3" style="top:40px; left:440px;">
+      <span class="step-num">3</span>
+      <span class="icon">🛠️</span>
+      <div class="label">Power Query Editor</div>
+      <div class="sub">Transformuoja stulpelių tipus, atskiria datas, normalizuoja žanrų ir atlikėjų pavadinimus</div>
+    </div>
+
+    <!-- 4. Decision: schema split -->
+    <div class="node decision" data-id="n4" style="top:40px; left:660px;">
+      <span class="step-num">4</span>
+      <span class="icon">❓</span>
+      <div class="label">Faktų ar dimensijos?</div>
+      <div class="sub">Sprendžiama, kuri lentelė tampa faktų lentele, o kurios — dimensijomis žvaigždės schemoje</div>
+    </div>
+
+    <!-- 5. Store: Fact table -->
+    <div class="node store" data-id="n5" style="top:230px; left:660px;">
+      <span class="step-num">5</span>
+      <span class="icon">🗄️</span>
+      <div class="label">Faktų lentelė: Tracks</div>
+      <div class="sub">Saugo dainų metrikas — populiarumą, garso požymius, eksplicitinį turinį, datą</div>
+    </div>
+
+    <!-- 6. Store: Dim tables -->
+    <div class="node store" data-id="n6" style="top:230px; left:880px;">
+      <span class="step-num">6</span>
+      <span class="icon">📁</span>
+      <div class="label">Dimensijos: Artist, Genre, Date</div>
+      <div class="sub">Atskiros lentelės atlikėjams, žanrams ir kalendoriui, sujungtos su faktų lentele</div>
+    </div>
+
+    <!-- 7. Process: Relationships -->
+    <div class="node proc" data-id="n7" style="top:230px; left:1100px;">
+      <span class="step-num">7</span>
+      <span class="icon">🔗</span>
+      <div class="label">Ryšių modeliavimas</div>
+      <div class="sub">Power BI modelio rodinyje kuriami 1:N ryšiai tarp faktų ir dimensijų lentelių</div>
+    </div>
+
+    <!-- 8. Process: DAX measures -->
+    <div class="node proc" data-id="n8" style="top:230px; left:1320px;">
+      <span class="step-num">8</span>
+      <span class="icon">📐</span>
+      <div class="label">DAX skaičiavimai</div>
+      <div class="sub">Rašomi pažangūs DAX matai: CALCULATE, FILTER, SAMEPERIODLASTYEAR augimo rodikliams</div>
+    </div>
+
+    <!-- 9. Tool: DAX measures specifics -->
+    <div class="node tool" data-id="n9" style="top:420px; left:1320px;">
+      <span class="step-num">9</span>
+      <span class="icon">🧮</span>
+      <div class="label">KPI matai</div>
+      <div class="sub">Sukuriami matai: leidimų augimas, eksplicitinio turinio dalis, vidutinis populiarumas</div>
+    </div>
+
+    <!-- 10. Output: KPI cards -->
+    <div class="node output" data-id="n10" style="top:420px; left:1100px;">
+      <span class="step-num">10</span>
+      <span class="icon">📊</span>
+      <div class="label">KPI kortelės</div>
+      <div class="sub">Dashboard'e rodomos dinamiškos KPI kortelės su pagrindiniais rodikliais</div>
+    </div>
+
+    <!-- 11. Process: Visuals build -->
+    <div class="node proc" data-id="n11" style="top:420px; left:880px;">
+      <span class="step-num">11</span>
+      <span class="icon">📈</span>
+      <div class="label">Vizualizacijų kūrimas</div>
+      <div class="sub">Kuriami grafikai: leidimų augimo linija, garso požymių sklaidos diagrama, žanrų pasiskirstymas</div>
+    </div>
+
+    <!-- 12. Tool: Slicers -->
+    <div class="node tool" data-id="n12" style="top:420px; left:660px;">
+      <span class="step-num">12</span>
+      <span class="icon">🎚️</span>
+      <div class="label">Interaktyvūs slicers</div>
+      <div class="sub">Pridedami filtrai: Metai, Žanras, Atlikėjas, Daina — vartotojas gali siaurinti duomenų rinkinį</div>
+    </div>
+
+    <!-- 13. Output: Top10 comparison -->
+    <div class="node output" data-id="n13" style="top:610px; left:660px;">
+      <span class="step-num">13</span>
+      <span class="icon">🏆</span>
+      <div class="label">Top 10 atlikėjų palyginimas</div>
+      <div class="sub">Pasirinktas atlikėjas lyginamas su vidutiniais rodikliais tarp Top 10 atlikėjų</div>
+    </div>
+
+    <!-- 14. Decision: drill-through -->
+    <div class="node decision" data-id="n14" style="top:610px; left:880px;">
+      <span class="step-num">14</span>
+      <span class="icon">🔍</span>
+      <div class="label">Drill-through pasirinkimas?</div>
+      <div class="sub">Vartotojas dešiniu pelės klavišu spusteli atlikėją — ar pereiti į detalų puslapį?</div>
+    </div>
+
+    <!-- 15. Output: Drill-through page -->
+    <div class="node output" data-id="n15" style="top:610px; left:1100px;">
+      <span class="step-num">15</span>
+      <span class="icon">📄</span>
+      <div class="label">Drill-through analizė</div>
+      <div class="sub">Atidaromas detalus atlikėjo puslapis su jo dainų istorija, žanrais ir tendencijomis</div>
+    </div>
+
+    <!-- 16. Output: Bookmarks navigation -->
+    <div class="node output" data-id="n16" style="top:610px; left:1320px;">
+      <span class="step-num">16</span>
+      <span class="icon">🔖</span>
+      <div class="label">Žymės ir navigacija</div>
+      <div class="sub">Bookmarks leidžia vartotojui greitai persijungti tarp ataskaitų puslapių ir scenarijų</div>
+    </div>
+
+    <!-- 17. Output: Final use -->
+    <div class="node output" data-id="n17" style="top:420px; left:1540px;">
+      <span class="step-num">17</span>
+      <span class="icon">✅</span>
+      <div class="label">Įžvalgos vartotojui</div>
+      <div class="sub">Galutinis vartotojas gauna pilną Spotify muzikos industrijos tendencijų vaizdą sprendimams priimti</div>
+    </div>
+
+  </div>
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+
+<footer>Spustelėk mazgą, kad paryškintum jo ryšius · Savarankiškas HTML, veikia be interneto · Spotify Duomenų Analizės Power BI Projektas</footer>
+
+<script>
+(function(){
+  const nodes = Array.from(document.querySelectorAll('.node'));
+  const svg = document.getElementById('connections');
+  const tooltip = document.getElementById('tooltip');
+  const canvas = document.getElementById('canvas');
+
+  // Define connections: [fromId, toId, label, colorVar]
+  const edges = [
+    ['n1','n2','CSV failas','--trigger-border'],
+    ['n2','n3','žali duomenys','--proc-border'],
+    ['n3','n4','švarūs duomenys','--tool-border'],
+    ['n4','n5','faktai','--decision-border'],
+    ['n4','n6','dimensijos','--decision-border'],
+    ['n5','n7','FK raktai','--store-border'],
+    ['n6','n7','PK raktai','--store-border'],
+    ['n7','n8','modelis','--proc-border'],
+    ['n8','n9','DAX kontekstas','--proc-border'],
+    ['n9','n10','reikšmės','--tool-border'],
+    ['n10','n11','KPI duomenys','--output-border'],
+    ['n11','n12','vizualai','--proc-border'],
+    ['n12','n13','filtruoti duomenys','--tool-border'],
+    ['n13','n14','pasirinktas atlikėjas','--output-border'],
+    ['n14','n15','TAIP','--decision-border'],
+    ['n14','n16','NE','--decision-border'],
+    ['n15','n17','detali analizė','--output-border'],
+    ['n16','n17','navigacija','--output-border'],
+  ];
+
+  function getColor(varName){
+    return getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+  }
+
+  function nodeCenter(el){
+    const r = el.getBoundingClientRect();
+    const c = canvas.getBoundingClientRect();
+    return {
+      x: r.left - c.left + r.width/2,
+      y: r.top - c.top + r.height/2,
+      w: r.width, h: r.height,
+      left: r.left - c.left, top: r.top - c.top,
+      right: r.left - c.left + r.width, bottom: r.top - c.top + r.height
+    };
+  }
+
+  function edgePoint(a, b){
+    // connect from edge of a towards b, simple midpoint based direction
+    const dx = b.x - a.x, dy = b.y - a.y;
+    let sx, sy;
+    if (Math.abs(dx) > Math.abs(dy)){
+      sx = dx > 0 ? a.right : a.left;
+      sy = a.y;
+    } else {
+      sx = a.x;
+      sy = dy > 0 ? a.bottom : a.top;
+    }
+    return {x: sx, y: sy};
+  }
+
+  function resize(){
+    const rect = canvas.getBoundingClientRect();
+    svg.setAttribute('width', rect.width);
+    svg.setAttribute('height', rect.height);
+    draw();
+  }
+
+  function draw(){
+    svg.innerHTML = '';
+    // arrow marker defs per color
+    const defs = document.createElementNS('http://www.w3.org/2000/svg','defs');
+    svg.appendChild(defs);
+
+    edges.forEach(([fromId, toId, label, colorVar], i)=>{
+      const fromEl = document.querySelector(`[data-id="${fromId}"]`);
+      const toEl = document.querySelector(`[data-id="${toId}"]`);
+      if(!fromEl || !toEl) return;
+      const a = nodeCenter(fromEl);
+      const b = nodeCenter(toEl);
+      const start = edgePoint(a,b);
+      const end = edgePoint(b,a);
+      const color = getColor(colorVar) || '#444444';
+
+      const markerId = `arrow-${i}`;
+      const marker = document.createElementNS('http://www.w3.org/2000/svg','marker');
+      marker.setAttribute('id', markerId);
+      marker.setAttribute('markerWidth','8');
+      marker.setAttribute('markerHeight','8');
+      marker.setAttribute('refX','6');
+      marker.setAttribute('refY','3');
+      marker.setAttribute('orient','auto');
+      marker.setAttribute('markerUnits','strokeWidth');
+      const arrowPath = document.createElementNS('http://www.w3.org/2000/svg','path');
+      arrowPath.setAttribute('d','M0,0 L6,3 L0,6 Z');
+      arrowPath.setAttribute('fill', color);
+      marker.appendChild(arrowPath);
+      defs.appendChild(marker);
+
+      const midx = (start.x+end.x)/2;
+      const midy = (start.y+end.y)/2;
+      const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+      const d = `M ${start.x} ${start.y} Q ${midx} ${midy} ${end.x} ${end.y}`;
+      path.setAttribute('d', d);
+      path.setAttribute('fill','none');
+      path.setAttribute('stroke', color);
+      path.setAttribute('stroke-width','2');
+      path.setAttribute('stroke-dasharray','6 5');
+      path.setAttribute('marker-end', `url(#${markerId})`);
+      path.setAttribute('opacity','0.85');
+      path.classList.add('edge');
+      path.dataset.from = fromId;
+      path.dataset.to = toId;
+      path.style.animation = 'dash 1.4s linear infinite';
+      svg.appendChild(path);
+
+      if(label){
+        const text = document.createElementNS('http://www.w3.org/2000/svg','text');
+        text.setAttribute('x', midx);
+        text.setAttribute('y', midy - 6);
+        text.setAttribute('fill', '#aaaaaa');
+        text.setAttribute('font-size','10');
+        text.setAttribute('text-anchor','middle');
+        text.textContent = label;
+        svg.appendChild(text);
+      }
+    });
+  }
+
+  const styleTag = document.createElement('style');
+  styleTag.textContent = `@keyframes dash { to { stroke-dashoffset: -22; } }`;
+  document.head.appendChild(styleTag);
+
+  // Tooltip + click highlight
+  nodes.forEach(node=>{
+    node.addEventListener('mousemove', (e)=>{
+      tooltip.innerHTML = `<strong>${node.querySelector('.label').textContent}</strong><br>${node.querySelector('.sub').textContent}`;
+      tooltip.style.left = (e.clientX + 16) + 'px';
+      tooltip.style.top = (e.clientY + 16) + 'px';
+      tooltip.classList.add('show');
+    });
+    node.addEventListener('mouseleave', ()=>{
+      tooltip.classList.remove('show');
+    });
+    node.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      const id = node.dataset.id;
+      const connected = new Set([id]);
+      edges.forEach(([f,t])=>{
+        if(f===id) connected.add(t);
+        if(t===id) connected.add(f);
+      });
+      nodes.forEach(n=>{
+        if(connected.has(n.dataset.id)){
+          n.classList.remove('dim');
+          if(n.dataset.id===id) n.classList.add('active'); else n.classList.remove('active');
+        } else {
+          n.classList.add('dim');
+          n.classList.remove('active');
+        }
+      });
+      document.querySelectorAll('.edge').forEach(p=>{
+        if(p.dataset.from===id || p.dataset.to===id){
+          p.style.opacity = '1';
+          p.setAttribute('stroke-width','3');
+        } else {
+          p.style.opacity = '0.12';
+          p.setAttribute('stroke-width','2');
+        }
+      });
+    });
+  });
+
+  document.body.addEventListener('click', ()=>{
+    nodes.forEach(n=>{ n.classList.remove('dim'); n.classList.remove('active'); });
+    document.querySelectorAll('.edge').forEach(p=>{
+      p.style.opacity = '0.85';
+      p.setAttribute('stroke-width','2');
+    });
+  });
+
+  window.addEventListener('resize', resize);
+  window.addEventListener('load', resize);
+  setTimeout(resize, 50);
+})();
+</script>
+
+</body>
+</html>
