@@ -119,11 +119,12 @@ export const rssAdapters: SourceAdapter[] = [
   { sourceId: 'delfi', kind: 'rss', feedUrl: 'https://www.delfi.lt/rss/feeds/lithuania.xml', name: 'Delfi.lt', type: 'ziniasklaida', reliability: 'B', notes: 'Bendras LT feed (filtruojama pagal temą).' },
   { sourceId: 'bbc-europe', kind: 'rss', feedUrl: 'https://feeds.bbci.co.uk/news/world/europe/rss.xml', name: 'BBC News (Europa)', type: 'ziniasklaida', reliability: 'B', notes: 'Bendras EN feed (filtruojama pagal temą).' },
   // Šaltiniai registruoti DB, dabar prijungti per RSS adapterius:
-  // NATO: tikrinami du URL — pirmasis /rss.xml, jei 404 bandyti kitą.
-  { sourceId: 'nato-hq', kind: 'rss', feedUrl: 'https://www.nato.int/rss.xml', name: 'NATO oficialūs pranešimai', type: 'oficialus_nato', reliability: 'A', notes: 'NATO oficialūs pranešimai (anglų k.).' },
+  // NATO RSS grąžina HTTP 404 — galiojančio viešo RSS URL nerasta. Laukia integracijos.
+  { sourceId: 'nato-hq', kind: 'pending', feedUrl: null, name: 'NATO oficialūs pranešimai', type: 'oficialus_nato', reliability: 'A', notes: 'NATO RSS URL nerasta (404). Galima alternatyva: scraping arba oficialios API.' },
   // ISW blokuoja serverio IP (HTTP 403) — laukia integracijos.
   { sourceId: 'isw-ctp', kind: 'pending', feedUrl: null, name: 'ISW / Critical Threats', type: 'analitinis_osint', reliability: 'A', notes: 'understandingwar.org blokuoja serverio IP (HTTP 403). Laukia alternatyvaus priėjimo.' },
-  { sourceId: 'lrt', kind: 'rss', feedUrl: 'https://www.lrt.lt/rss/naujienos', name: 'LRT naujienos', type: 'ziniasklaida', reliability: 'B', notes: 'LRT lietuviškos naujienos (filtruojama pagal temą).' },
+  // LRT RSS URL nerasta (404). Laukia tikslaus RSS adreso.
+  { sourceId: 'lrt', kind: 'pending', feedUrl: null, name: 'LRT naujienos', type: 'ziniasklaida', reliability: 'B', notes: 'LRT RSS URL grąžina 404. Reikia tikslaus RSS adreso.' },
   // Reuters feeds.reuters.com DNS nebeegzistuoja — laukia integracijos.
   { sourceId: 'reuters', kind: 'pending', feedUrl: null, name: 'Reuters', type: 'ziniasklaida', reliability: 'B', notes: 'feeds.reuters.com DNS neišsprendžiamas iš serverio — Reuters RSS nutraukė viešą prieigą.' },
 ]
