@@ -1,0 +1,235 @@
+import type {
+  SatelliteObservation,
+  AviationObservation,
+  RailwayObservation,
+  MissileAirDefenseObservation,
+  GnssEvent,
+  Notam,
+  Exercise,
+} from '@/types'
+
+const hoursAgo = (h: number) => new Date(Date.now() - h * 3600 * 1000).toISOString()
+const hoursFromNow = (h: number) => new Date(Date.now() + h * 3600 * 1000).toISOString()
+
+// Visi šie masyvai — DEMO duomenys. Jokio fiktyvaus palydovinio ar ADS-B turinio nekuriama:
+// palydovinių įrašų laukai beforeImageUrl/afterImageUrl paliekami tušti, kol neintegruotas
+// realus viešas šaltinis; aviacijos įrašai apibūdina tik bendrą aktyvumo lygį, ne konkretų skrydį.
+
+export const demoSatelliteObservations: SatelliteObservation[] = [
+  {
+    id: 'sat-gomelis-1',
+    locationId: 'gomelis',
+    title: 'Papildomos technikos platformos geležinkelio mazge',
+    observedAt: hoursAgo(140),
+    whatWeSee: ['Technikos koncentracija prie iškrovimo rampos', 'Nauji platformų / konteinerių vagonai'],
+    sourceIds: ['bellingcat'],
+    confidence: 'TIKETINA',
+    region: 'baltarusija',
+    isDemo: true,
+  },
+  {
+    id: 'sat-gozh-1',
+    locationId: 'gozhskij',
+    title: 'Poligono infrastruktūros pokyčiai',
+    observedAt: hoursAgo(150),
+    whatWeSee: ['Naujos lauko įtvirtinimų žymės', 'Padidėjęs technikos tankis vienoje zonoje'],
+    sourceIds: ['isw-ctp'],
+    confidence: 'TIKETINA',
+    region: 'baltarusija',
+    isDemo: true,
+  },
+]
+
+export const demoAviationObservations: AviationObservation[] = [
+  {
+    id: 'av-lyda-1',
+    country: 'baltarusija',
+    aircraftType: 'Nenustatytas tipas — bendras aktyvumo rodiklis',
+    activity: 'Padidėjęs skrydžių dažnis, palyginti su mėnesio vidurkiu',
+    locationId: 'lyda',
+    observedAt: hoursAgo(30),
+    confidence: 'TIKETINA',
+    sourceIds: ['isw-ctp', 'lrt'],
+    region: 'baltarusija',
+    isDemo: true,
+  },
+  {
+    id: 'av-kaliningrad-1',
+    country: 'rusija',
+    aircraftType: 'Nenustatytas tipas — bendras aktyvumo rodiklis',
+    activity: 'Padidėjęs kovinės aviacijos skrydžių dažnis',
+    locationId: 'kaliningradas',
+    observedAt: hoursAgo(10),
+    confidence: 'TIKETINA',
+    sourceIds: ['isw-ctp'],
+    region: 'suvalku_koridorius',
+    isDemo: true,
+  },
+]
+
+export const demoRailwayObservations: RailwayObservation[] = [
+  {
+    id: 'rail-gomelis-baranovicai',
+    fromLocationId: 'gomelis',
+    toLocationId: 'baranovicai',
+    cargoDescription: 'Krovinio pobūdis nepatvirtintas (galimai technikos platformos)',
+    confirmedLevel: 'TIKETINA',
+    signalType: 'neiprastas_telkimas',
+    observedAt: hoursAgo(20),
+    sourceIds: ['belarusian-hajun'],
+    region: 'baltarusija',
+    isDemo: true,
+  },
+  {
+    id: 'rail-baranovicai-gardinas',
+    fromLocationId: 'baranovicai',
+    toLocationId: 'gardinas',
+    cargoDescription: 'Papildomi vagonai vakarų kryptimi, Suvalkų koridoriaus zonoje',
+    confirmedLevel: 'TIKETINA',
+    signalType: 'neiprastas_telkimas',
+    observedAt: hoursAgo(22),
+    sourceIds: ['belarusian-hajun'],
+    region: 'suvalku_koridorius',
+    isDemo: true,
+  },
+  {
+    id: 'rail-gomelis-luninecas',
+    fromLocationId: 'gomelis',
+    toLocationId: 'luninecas',
+    cargoDescription: 'Įprastas pratybinis transportas',
+    confirmedLevel: 'PATVIRTINTA',
+    signalType: 'normalus_pratybinis',
+    observedAt: hoursAgo(80),
+    sourceIds: ['kam'],
+    region: 'baltarusija',
+    isDemo: true,
+  },
+]
+
+export const demoMissileObservations: MissileAirDefenseObservation[] = [
+  {
+    id: 'missile-asmena-s400',
+    system: 'S-400',
+    locationId: 'asmena',
+    changeType: 'nauja_dislokacija',
+    observedAt: hoursAgo(25),
+    confidence: 'PATVIRTINTA',
+    sourceIds: ['kam', 'nato-hq'],
+    region: 'baltarusija',
+    isDemo: true,
+  },
+  {
+    id: 'missile-obuz-iskander',
+    system: 'Iskander',
+    locationId: 'obuz-lesnovskij',
+    changeType: 'pratybinis_aktyvumas',
+    observedAt: hoursAgo(60),
+    confidence: 'TIKETINA',
+    sourceIds: ['isw-ctp'],
+    region: 'baltarusija',
+    isDemo: true,
+  },
+]
+
+export const demoGnssEvents: GnssEvent[] = [
+  {
+    id: 'gnss-pietryciu-lt',
+    areaName: 'Pietryčių Lietuva ir pasienio ruožas',
+    lat: 54.3,
+    lng: 25.6,
+    radiusKm: 60,
+    type: 'jamming',
+    intensity: 'vidutinis',
+    startedAt: hoursAgo(15),
+    confidence: 'TIKETINA',
+    sourceIds: ['isw-ctp'],
+    region: 'baltarusija',
+    isDemo: true,
+  },
+  {
+    id: 'gnss-kaliningrad-suvalkai',
+    areaName: 'Kaliningrado–Suvalkų zona',
+    lat: 54.4,
+    lng: 21.9,
+    radiusKm: 90,
+    type: 'jamming',
+    intensity: 'vidutinis',
+    startedAt: hoursAgo(10),
+    confidence: 'TIKETINA',
+    sourceIds: ['isw-ctp'],
+    region: 'suvalku_koridorius',
+    isDemo: true,
+  },
+]
+
+export const demoNotams: Notam[] = [
+  {
+    id: 'notam-gardinas-1',
+    title: 'Laikinas oro erdvės apribojimas virš vakarų Baltarusijos',
+    area: 'Gardino regionas',
+    restrictionType: 'Laikinas draudimas / apribojimas',
+    startsAt: hoursAgo(72),
+    endsAt: hoursFromNow(96),
+    confidence: 'PATVIRTINTA',
+    sourceIds: ['nato-hq'],
+    region: 'baltarusija',
+    isDemo: true,
+  },
+  {
+    id: 'notam-kaliningrad-1',
+    title: 'NOTAM dėl mokymų zonos Kaliningrado srityje',
+    area: 'Kaliningrado sritis',
+    restrictionType: 'Mokymų / šaudymo zona',
+    startsAt: hoursAgo(40),
+    endsAt: hoursFromNow(48),
+    confidence: 'TIKETINA',
+    sourceIds: ['isw-ctp'],
+    region: 'suvalku_koridorius',
+    isDemo: true,
+  },
+]
+
+export const demoExercises: Exercise[] = [
+  {
+    id: 'exercise-ruduo',
+    name: 'Planinės rudens pratybos (regioninis ciklas)',
+    sides: ['Baltarusija', 'Rusija'],
+    startsAt: hoursAgo(200),
+    endsAt: hoursAgo(40),
+    locationIds: ['gozhskij', 'losvido'],
+    scale: 'Regioninis, keli tūkstančiai dalyvių (viešai skelbta)',
+    personnelRemainedAfter: false,
+    confidence: 'PATVIRTINTA',
+    sourceIds: ['kam'],
+    region: 'baltarusija',
+    isDemo: true,
+  },
+  {
+    id: 'exercise-nato-air-policing',
+    name: 'Bendros NATO oro policijos pratybos',
+    sides: ['NATO', 'Lietuva', 'Lenkija'],
+    startsAt: hoursAgo(100),
+    endsAt: hoursAgo(4),
+    locationIds: ['marijampole'],
+    scale: 'Nedidelis, rotacinis dalinys',
+    personnelRemainedAfter: false,
+    confidence: 'PATVIRTINTA',
+    sourceIds: ['nato-hq'],
+    region: 'suvalku_koridorius',
+    isDemo: true,
+  },
+  {
+    id: 'exercise-vasara-liko',
+    name: 'Vasaros bendros pratybos',
+    sides: ['Baltarusija', 'Rusija'],
+    startsAt: hoursAgo(400),
+    endsAt: hoursAgo(300),
+    locationIds: ['obuz-lesnovskij'],
+    scale: 'Vidutinis mastas',
+    personnelRemainedAfter: true,
+    confidence: 'TIKETINA',
+    sourceIds: ['isw-ctp'],
+    region: 'baltarusija',
+    isDemo: true,
+  },
+]
