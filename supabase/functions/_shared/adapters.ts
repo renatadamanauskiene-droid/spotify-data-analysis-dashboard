@@ -1,95 +1,133 @@
 // Šaltinių adapterių registras. Kiekvienas adapteris apibrėžia, KAIP konkretaus šaltinio
-// duomenys turi būti gaunami. `feedUrl: null` reiškia "laukia integracijos" — funkcija tokį
-// šaltinį praleidžia ir tai aiškiai užfiksuoja ingestion_runs lentelėje; JOKIŲ fiktyvių įrašų
-// tokiam šaltiniui nesukuriama.
+// duomenys gaunami. `feedUrl: null` reiškia "laukia integracijos" — praleidžiama.
 //
-// Naujo šaltinio pridėjimas: (1) įrašas į `sources` lentelę (žr. supabase/seed.sql arba
-// migraciją 0003_sources_and_cron.sql), (2) adapteris čia su tikru feedUrl, (3) jei reikia
-// specifinio API (ADS-B, palydoviniai vaizdai, NOTAM, GNSS trikdžiai), sukurti atskirą adapterio
-// tipą ir atskirą Edge Function (pvz. ingest-gnss) pagal tą patį modelį kaip ingest-rss.
+// ingest-rss pats UŽREGISTRUOJA šaltinį `sources` lentelėje (jei dar nėra) pagal čia nurodytus
+// name/type/reliability laukus — todėl naują šaltinį pridėti pakanka ČIA, be atskiros SQL
+// migracijos.
 //
-// SVARBU: čia esantys feedUrl buvo patikrinti (grąžina galiojantį RSS/XML). Šaltiniai, kuriems
-// nemokamo viešo RSS nėra (VSD/KAM oficialaus RSS neteikia dalies skilčių; NATO/ISW blokuoja
-// botus; Reuters nebeteikia viešo RSS; LRT turi tik JSON API, ne RSS), palikti `null` su
-// paaiškinimu — jie sąmoningai praleidžiami, kad nebūtų kuriamas fiktyvus turinys.
+// SVARBU: visi feedUrl patikrinti, kad grąžina galiojantį RSS/XML IR yra pasiekiami iš serverio
+// (debesijos IP). Google News ir OpenSky iš Supabase Edge Function grąžina HTTP 503/blokuoja
+// datacentro IP, todėl NENAUDOJAMI — vietoje jų parinkti tiesioginiai leidinių RSS, susiję su
+// Baltarusijos / Baltijos regiono karine tematika. Bendram triukšmui atmesti ingest-rss taiko
+// RELEVANCE_KEYWORDS filtrą (žr. ingest-rss/index.ts).
 
 export type AdapterKind = 'rss' | 'json' | 'pending'
+export type SourceReliability = 'A' | 'B' | 'C'
+export type SourceType =
+  | 'oficialus_lt'
+  | 'oficialus_nato'
+  | 'oficialus_uzsienio'
+  | 'analitinis_osint'
+  | 'zeleznodorozny_osint'
+  | 'ziniasklaida'
+  | 'kitas'
 
 export interface SourceAdapter {
   sourceId: string
   kind: AdapterKind
   feedUrl: string | null
+  // Šaltinio metaduomenys automatinei registracijai `sources` lentelėje:
+  name?: string
+  type?: SourceType
+  reliability?: SourceReliability
   notes?: string
 }
 
 export const rssAdapters: SourceAdapter[] = [
-  // --- TIKSLINĖS Google News užklausos (pagrindinis OSINT srautas) -----------------------------
-  // Google News RSS paieška grąžina tik su tema susijusius straipsnius iš daugybės leidinių, todėl
-  // srautas lieka relevantiškas (Baltarusijos pratybos, žvalgyba, NATO įspėjimai, geležinkeliai,
-  // oro erdvės incidentai), o ne bendros naujienos. hl=kalba, gl/ceid=regionas.
+  // --- Regiono / karinės tematikos leidiniai (pasiekiami iš serverio) --------------------------
   {
-    sourceId: 'gn-by-mil-lt',
+    sourceId: 'meduza-en',
     kind: 'rss',
-    feedUrl:
-      'https://news.google.com/rss/search?q=Baltarusija%20(pratybos%20OR%20kariuomen%C4%97%20OR%20mobilizacija%20OR%20Zapad%20OR%20Astravas%20OR%20karin%C4%97)&hl=lt&gl=LT&ceid=LT:lt',
-    notes: 'Google News LT — Baltarusijos karinis aktyvumas, pratybos.',
+    feedUrl: 'https://meduza.io/rss/en/all',
+    name: 'Meduza (EN)',
+    type: 'ziniasklaida',
+    reliability: 'B',
+    notes: 'Nepriklausoma rusų/regiono žiniasklaida (anglų k.).',
   },
   {
-    sourceId: 'gn-by-mil-en',
+    sourceId: 'euromaidan',
     kind: 'rss',
-    feedUrl:
-      'https://news.google.com/rss/search?q=Belarus%20(military%20OR%20troops%20OR%20Zapad%20OR%20mobilization%20OR%20drills%20OR%20Wagner)&hl=en-US&gl=US&ceid=US:en',
-    notes: 'Google News EN — Belarus military activity, exercises.',
+    feedUrl: 'https://euromaidanpress.com/feed/',
+    name: 'Euromaidan Press',
+    type: 'analitinis_osint',
+    reliability: 'B',
+    notes: 'Karo / Rusijos / Baltarusijos OSINT analizė.',
   },
   {
-    sourceId: 'gn-nato-baltic',
+    sourceId: 'moscowtimes',
     kind: 'rss',
-    feedUrl:
-      'https://news.google.com/rss/search?q=(NATO%20OR%20Baltijos%20%C5%A1alys%20OR%20Baltic%20states)%20(gr%C4%97sm%C4%97%20OR%20threat%20OR%20warning%20OR%20%C4%AFsp%C4%97jimas%20OR%20Suvalk%C5%B3%20OR%20Suwalki%20OR%20Kaliningrad)&hl=lt&gl=LT&ceid=LT:lt',
-    notes: 'Google News — NATO / Baltijos šalių grėsmės ir įspėjimai, Suvalkų koridorius, Kaliningradas.',
+    feedUrl: 'https://www.themoscowtimes.com/rss/news',
+    name: 'The Moscow Times',
+    type: 'ziniasklaida',
+    reliability: 'B',
+    notes: 'Nepriklausoma Rusijos žiniasklaida (anglų k.).',
   },
   {
-    sourceId: 'gn-by-rail',
+    sourceId: 'notesfrompoland',
     kind: 'rss',
-    feedUrl:
-      'https://news.google.com/rss/search?q=Belarus%20(railway%20OR%20railcar%20OR%20echelon%20OR%20troop%20transport)%20OR%20Baltarusija%20gele%C5%BEinkelis%20kariuomen%C4%97&hl=en-US&gl=US&ceid=US:en',
-    notes: 'Google News — Baltarusijos geležinkelių / karinio pervežimo aktyvumas.',
+    feedUrl: 'https://notesfrompoland.com/feed/',
+    name: 'Notes from Poland',
+    type: 'ziniasklaida',
+    reliability: 'B',
+    notes: 'Lenkijos naujienos (Suvalkų koridorius, siena, NATO).',
   },
   {
-    sourceId: 'gn-baltics-incidents',
+    sourceId: 'err-ee',
     kind: 'rss',
-    feedUrl:
-      'https://news.google.com/rss/search?q=(Estija%20OR%20Latvija%20OR%20Lietuva%20OR%20Estonia%20OR%20Latvia)%20(dronas%20OR%20drone%20OR%20oro%20erdv%C4%97%20OR%20airspace%20OR%20provokacija%20OR%20incidentas%20OR%20sabotage%20OR%20diversija)&hl=lt&gl=LT&ceid=LT:lt',
-    notes: 'Google News — oro erdvės pažeidimai, dronai, incidentai Baltijos šalyse.',
+    feedUrl: 'https://news.err.ee/rss',
+    name: 'ERR (Estija, EN)',
+    type: 'ziniasklaida',
+    reliability: 'B',
+    notes: 'Estijos nacionalinis transliuotojas (oro erdvė, incidentai).',
+  },
+  {
+    sourceId: 'lsm-lv',
+    kind: 'rss',
+    feedUrl: 'https://eng.lsm.lv/rss/',
+    name: 'LSM (Latvija, EN)',
+    type: 'ziniasklaida',
+    reliability: 'B',
+    notes: 'Latvijos nacionalinis transliuotojas (oro erdvė, incidentai).',
+  },
+  {
+    sourceId: 'defence-blog',
+    kind: 'rss',
+    feedUrl: 'https://defence-blog.com/feed/',
+    name: 'The Defence Blog',
+    type: 'analitinis_osint',
+    reliability: 'B',
+    notes: 'Gynybos / karinės technikos naujienos.',
+  },
+  {
+    sourceId: 'ukrinform',
+    kind: 'rss',
+    feedUrl: 'https://www.ukrinform.net/rss/block-lastnews',
+    name: 'Ukrinform (EN)',
+    type: 'ziniasklaida',
+    reliability: 'B',
+    notes: 'Ukrainos naujienų agentūra (anglų k.).',
+  },
+  {
+    sourceId: 'jamestown',
+    kind: 'rss',
+    feedUrl: 'https://jamestown.org/feed/',
+    name: 'Jamestown Foundation',
+    type: 'analitinis_osint',
+    reliability: 'B',
+    notes: 'Baltarusijos / Rusijos strateginė analizė.',
   },
 
-  // --- Papildomi teminiai OSINT / institucijų šaltiniai ----------------------------------------
-  { sourceId: 'kam', kind: 'rss', feedUrl: 'https://kam.lt/feed/', notes: 'Krašto apsaugos ministerijos naujienų RSS.' },
-  { sourceId: 'bellingcat', kind: 'rss', feedUrl: 'https://www.bellingcat.com/feed/', notes: 'Bellingcat OSINT tyrimų RSS.' },
-  // Bendri LT/EN naujienų feed'ai — paliekami, bet ingest-rss taiko RELEVANTIŠKUMO filtrą
-  // (žr. RELEVANCE_KEYWORDS), todėl įrašomi tik su tema susiję straipsniai, o bendras triukšmas
-  // (pvz. sportas, orai, nesusijusios pasaulio naujienos) atmetamas.
-  { sourceId: '15min', kind: 'rss', feedUrl: 'https://www.15min.lt/rss', notes: '15min.lt RSS (filtruojama pagal temą).' },
-  { sourceId: 'delfi', kind: 'rss', feedUrl: 'https://www.delfi.lt/rss/feeds/lithuania.xml', notes: 'Delfi.lt RSS (filtruojama pagal temą).' },
-  { sourceId: 'bbc-europe', kind: 'rss', feedUrl: 'https://feeds.bbci.co.uk/news/world/europe/rss.xml', notes: 'BBC Europe RSS (filtruojama pagal temą).' },
-
-  // --- Laukia integracijos (nėra tinkamo viešo RSS) --------------------------------------------
-  { sourceId: 'vsd', kind: 'rss', feedUrl: null, notes: 'VSD tinkamo viešo RSS neteikia — reikėtų puslapio nuskaitymo arba oficialaus feed.' },
-  { sourceId: 'nato-hq', kind: 'rss', feedUrl: null, notes: 'NATO naujienų puslapis grąžina 404 standartinėms RSS nuorodoms.' },
-  { sourceId: 'isw-ctp', kind: 'rss', feedUrl: null, notes: 'ISW/understandingwar.org RSS blokuoja automatines užklausas (HTTP 403).' },
-  { sourceId: 'lrt', kind: 'json', feedUrl: null, notes: 'LRT teikia tik JSON API (ne RSS); reikia atskiro JSON adapterio ir parser papildymo.' },
-  { sourceId: 'reuters', kind: 'rss', feedUrl: null, notes: 'Reuters nebeteikia viešo RSS (reikia mokamo API rakto).' },
-  { sourceId: 'belarusian-hajun', kind: 'json', feedUrl: null, notes: 'Telegram kanalo viešo API/RSS tilto nuoroda dar nenustatyta.' },
+  // --- Papildomi šaltiniai (filtruojami pagal temą) --------------------------------------------
+  { sourceId: 'bellingcat', kind: 'rss', feedUrl: 'https://www.bellingcat.com/feed/', name: 'Bellingcat', type: 'analitinis_osint', reliability: 'B', notes: 'OSINT tyrimai.' },
+  { sourceId: 'kam', kind: 'rss', feedUrl: 'https://kam.lt/feed/', name: 'Krašto apsaugos ministerija (KAM)', type: 'oficialus_lt', reliability: 'A', notes: 'KAM RSS (kartais blokuoja serverio IP).' },
+  { sourceId: '15min', kind: 'rss', feedUrl: 'https://www.15min.lt/rss', name: '15min.lt', type: 'ziniasklaida', reliability: 'B', notes: 'Bendras LT feed (filtruojama pagal temą).' },
+  { sourceId: 'delfi', kind: 'rss', feedUrl: 'https://www.delfi.lt/rss/feeds/lithuania.xml', name: 'Delfi.lt', type: 'ziniasklaida', reliability: 'B', notes: 'Bendras LT feed (filtruojama pagal temą).' },
+  { sourceId: 'bbc-europe', kind: 'rss', feedUrl: 'https://feeds.bbci.co.uk/news/world/europe/rss.xml', name: 'BBC News (Europa)', type: 'ziniasklaida', reliability: 'B', notes: 'Bendras EN feed (filtruojama pagal temą).' },
 ]
 
 // Ateities integracijoms — atskiri Edge Functions pagal tą patį modelį:
-// - ADS-B: ĮGYVENDINTA — supabase/functions/ingest-aviation kviečia OpenSky serverio pusėje ->
-//   live_aircraft_cache.
-// - GNSS trikdžiai: ĮGYVENDINTA — supabase/functions/ingest-gnss kasdien atsisiunčia gpsjam.org
-//   viešus ADS-B GPS trikdžių duomenis (H3 tinklelis) ir įrašo į `gnss_events` regione.
-// - ingest-satellite: palydovinių vaizdų / analizės API -> satellite_observations. NĖRA
-//   nemokamo, tam tinkamo realaus laiko šaltinio (žr. src/screens/SatelliteScreen.tsx) —
-//   reikėtų komercinio tiekėjo (Sentinel Hub, Planet Labs) API rakto.
-// - ingest-notam: NOTAM šaltinis -> notams (nėra nemokamo viešo API šiam regionui).
-// - Geležinkeliai / raketinės sistemos: nėra viešo struktūrizuoto realaus laiko šaltinio —
-//   šie duomenys reikalauja analitiko peržiūros (žr. UŽDUOTIS, 4 punktas).
+// - ADS-B aviacija: ĮGYVENDINTA — ingest-aviation (adsb.fi/adsb.lol) -> live_aircraft_cache.
+// - GNSS trikdžiai: ĮGYVENDINTA — ingest-gnss (gpsjam.org) -> gnss_events.
+// - Palydovai / geležinkelių „apkrova" / raketinės pozicijos: nėra nemokamo struktūrizuoto
+//   realaus laiko šaltinio; geležinkelių / karinio pervežimo TEMA dengiama per naujienų srautą
+//   (Euromaidan, Meduza, Ukrinform ir kt.), o struktūrizuoti įvykiai lieka analitiko įvedimui.
