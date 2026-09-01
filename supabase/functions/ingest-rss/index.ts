@@ -41,6 +41,41 @@ function defaultConfidenceForReliability(reliability: string): 'PATVIRTINTA' | '
   return 'NEPATVIRTINTA'
 }
 
+// RELEVANTIŠKUMO filtras. Įrašomi TIK straipsniai, susiję su stebėsenos tema (Baltarusijos
+// karinis aktyvumas, pratybos, žvalgyba, NATO/Baltijos grėsmės, geležinkeliai, oro erdvės
+// incidentai, raketinės/oro gynybos sistemos). Bendras triukšmas (sportas, orai, nesusijusios
+// pasaulio naujienos) atmetamas. Google News tiksliniai feed'ai jau relevantiški — filtras
+// pirmiausia išvalo bendrus LT/EN feed'us (15min, Delfi, BBC).
+const RELEVANCE_KEYWORDS = [
+  'baltarus', 'belarus', 'беларус', 'lukašen', 'lukashen', 'minsk', 'minsko', 'astrav',
+  'zapad', 'pratyb', 'kariuom', 'karin', 'military', 'troops', 'army', 'mobiliz',
+  'nato', 'baltijos', 'baltic', 'suvalk', 'suwałki', 'suwalki', 'kaliningrad', 'karaliauč',
+  'iskander', 'raket', 'missile', 'oro erdv', 'airspace', 'dron', 'drone', 'provokac',
+  'pasien', 'siena', 'border', 'geležink', 'gelezink', 'railway', 'railcar', 'ešelon', 'echelon',
+  'wagner', 'žvalgyb', 'zvalgyb', 'intelligence', 'reconnaissance', 'sabotag', 'sabotaž', 'diversij',
+  'estijoj', 'estonia', 'estij', 'latvijoj', 'latvia', 'latvij', 'gnss', 'glušin', 'jamming',
+  'oro gynyb', 'air defen', 'putin', 'rusijos kariuomen', 'russian troops', 'okupac',
+]
+
+function isRelevant(text: string): boolean {
+  const t = text.toLowerCase()
+  return RELEVANCE_KEYWORDS.some((k) => t.includes(k))
+}
+
+// Regiono žymėjimas pagal raktažodžius (news_items.region — laisvas tekstas). 'suvalku_koridorius'
+// kai minimas Suvalkų koridorius / Kaliningradas; kitu atveju 'baltarusija' jei susiję su
+// Baltarusija; likusiais atvejais 'abu'.
+function detectRegion(text: string): string {
+  const t = text.toLowerCase()
+  if (t.includes('suvalk') || t.includes('suwałki') || t.includes('suwalki') || t.includes('kaliningrad') || t.includes('karaliauč')) {
+    return 'suvalku_koridorius'
+  }
+  if (t.includes('baltarus') || t.includes('belarus') || t.includes('minsk') || t.includes('lukašen') || t.includes('lukashen')) {
+    return 'baltarusija'
+  }
+  return 'abu'
+}
+
 Deno.serve(async () => {
   const { data: sources, error: sourcesError } = await supabase.from('sources').select('id, reliability, enabled')
   if (sourcesError) {
@@ -74,15 +109,27 @@ Deno.serve(async () => {
     }
 
     try {
-      const res = await fetch(adapter.feedUrl, { headers: { 'user-agent': 'baltarusijos-karine-stebesena-ingest/1.0' } })
+      const res = await fetch(adapter.feedUrl, {
+        headers: {
+          'user-agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36',
+        },
+      })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const xml = await res.text()
       const items = parseFeed(xml)
 
       let inserted = 0
       let deduped = 0
+      let skipped = 0
 
       for (const item of items) {
+        // RELEVANTIŠKUMO filtras — atmetama, kas nesusiję su tema (išvalo bendrus feed'us).
+        if (!isRelevant(`${item.title} ${item.description}`)) {
+          skipped += 1
+          continue
+        }
+
         const publishedAt = item.publishedAt || new Date().toISOString()
         const dedupKey = await sha256Hex(`${adapter.sourceId}|${item.link}|${item.title}|${publishedAt.slice(0, 10)}`)
 
@@ -96,7 +143,7 @@ Deno.serve(async () => {
               source_id: adapter.sourceId,
               source_url: item.link,
               confidence: defaultConfidenceForReliability(source.reliability),
-              region: 'abu',
+              region: detectRegion(`${item.title} ${item.description}`),
               dedup_key: dedupKey,
             },
             { count: 'exact' },
@@ -127,7 +174,7 @@ Deno.serve(async () => {
         items_deduplicated: deduped,
       })
 
-      results[adapter.sourceId] = { seen: items.length, inserted, deduped }
+      results[adapter.sourceId] = { seen: items.length, inserted, deduped, skippedIrrelevant: skipped }
     } catch (err) {
       await supabase.from('sources').update({ status: 'sutrikimas' }).eq('id', adapter.sourceId)
       await supabase.from('ingestion_runs').insert({
