@@ -29,16 +29,31 @@ export function getDataMode(): DataMode {
   return dataMode
 }
 
+const FETCH_TIMEOUT_MS = 10_000
+
+// SVARBU: užklausai visada uždedamas laiko limitas. Be jo, jei Supabase pasiekiamas lėtai arba
+// visai nepasiekiamas (tinklo problema, sustabdytas projektas), Promise.all AppDataContext'e
+// kabėtų amžinai ir programėlė niekada neišeitų iš įkėlimo būsenos — vietoje honest empty/offline
+// būsenos vartotojas matytų begalinį "kraunasi" ekraną.
 async function fetchTable<T>(table: string, mapRow: (row: Record<string, unknown>) => T, orderCol?: string): Promise<T[]> {
   if (!supabase) return []
-  let query = supabase.from(table).select('*')
-  if (orderCol) query = query.order(orderCol, { ascending: false })
-  const { data, error } = await query
-  if (error || !data) {
-    console.warn(`[dataSource] Nepavyko gauti duomenų iš "${table}":`, error?.message)
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
+  try {
+    let query = supabase.from(table).select('*').abortSignal(controller.signal)
+    if (orderCol) query = query.order(orderCol, { ascending: false })
+    const { data, error } = await query
+    if (error || !data) {
+      console.warn(`[dataSource] Nepavyko gauti duomenų iš "${table}":`, error?.message)
+      return []
+    }
+    return data.map(mapRow)
+  } catch (err) {
+    console.warn(`[dataSource] Užklausa į "${table}" nepavyko arba viršijo laiko limitą:`, err instanceof Error ? err.message : err)
     return []
+  } finally {
+    clearTimeout(timeout)
   }
-  return data.map(mapRow)
 }
 
 // --- Mappers (snake_case DB stulpeliai -> camelCase domeno tipai) -----------------------------

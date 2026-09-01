@@ -29,10 +29,14 @@ jobs:
 
       - run: npm ci
 
-      - name: Build (be Supabase konfigūracijos — DEMO režimas)
+      - name: Build (LIVE — Supabase sukonfigūruotas)
         run: npm run build
         env:
           BASE_PATH: /${{ github.event.repository.name }}/
+          # anon/publishable raktas skirtas būti viešas kliento pusėje (apsauga per RLS) —
+          # saugu laikyti workflow faile. service_role raktas ČIA NIEKADA nededamas.
+          VITE_SUPABASE_URL: https://wmhvjwuzxgwlqxgkksfa.supabase.co
+          VITE_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndtaHZqd3V6eGd3bHF4Z2trc2ZhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyMzY5ODgsImV4cCI6MjEwMzgxMjk4OH0.KfE6ZH6AjCUrm4C0BkPs7ER2HNbx1YT-RW_4FDQcRPA
 
       - name: SPA fallback for GitHub Pages
         run: cp dist/index.html dist/404.html
