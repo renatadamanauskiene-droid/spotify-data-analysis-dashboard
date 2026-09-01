@@ -77,6 +77,25 @@ function detectRegion(text: string): string {
 }
 
 Deno.serve(async () => {
+  // Automatinė šaltinių registracija: sukuriam trūkstamus `sources` įrašus pagal adapterių
+  // metaduomenis (name/type/reliability). ignoreDuplicates — esamų neperrašom (išsaugom statusą
+  // ir last_successful_fetch). Taip naują feed'ą pridėti pakanka adapters.ts, be SQL migracijos.
+  const sourceRows = rssAdapters
+    .filter((a) => a.name && a.type && a.reliability)
+    .map((a) => ({
+      id: a.sourceId,
+      name: a.name!,
+      type: a.type!,
+      reliability: a.reliability!,
+      url: '',
+      enabled: true,
+      status: 'laukia_integracijos',
+      notes: a.notes ?? null,
+    }))
+  if (sourceRows.length > 0) {
+    await supabase.from('sources').upsert(sourceRows, { onConflict: 'id', ignoreDuplicates: true })
+  }
+
   const { data: sources, error: sourcesError } = await supabase.from('sources').select('id, reliability, enabled')
   if (sourcesError) {
     return new Response(JSON.stringify({ error: sourcesError.message }), { status: 500 })
