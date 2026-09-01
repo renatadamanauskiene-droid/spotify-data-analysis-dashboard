@@ -107,15 +107,8 @@ export const rssAdapters: SourceAdapter[] = [
     reliability: 'B',
     notes: 'Ukrainos naujienų agentūra (anglų k.).',
   },
-  {
-    sourceId: 'jamestown',
-    kind: 'rss',
-    feedUrl: 'https://jamestown.org/feed/',
-    name: 'Jamestown Foundation',
-    type: 'analitinis_osint',
-    reliability: 'B',
-    notes: 'Baltarusijos / Rusijos strateginė analizė.',
-  },
+  // Jamestown blokuoja serverio IP (HTTP 403) — feedUrl=null, nebus raudonas sutrikimas.
+  { sourceId: 'jamestown', kind: 'pending', feedUrl: null, name: 'Jamestown Foundation', type: 'analitinis_osint', reliability: 'B', notes: 'jamestown.org blokuoja serverio IP (HTTP 403).' },
 
   // --- Papildomi šaltiniai (filtruojami pagal temą) --------------------------------------------
   { sourceId: 'bellingcat', kind: 'rss', feedUrl: 'https://www.bellingcat.com/feed/', name: 'Bellingcat', type: 'analitinis_osint', reliability: 'B', notes: 'OSINT tyrimai.' },
@@ -126,10 +119,13 @@ export const rssAdapters: SourceAdapter[] = [
   { sourceId: 'delfi', kind: 'rss', feedUrl: 'https://www.delfi.lt/rss/feeds/lithuania.xml', name: 'Delfi.lt', type: 'ziniasklaida', reliability: 'B', notes: 'Bendras LT feed (filtruojama pagal temą).' },
   { sourceId: 'bbc-europe', kind: 'rss', feedUrl: 'https://feeds.bbci.co.uk/news/world/europe/rss.xml', name: 'BBC News (Europa)', type: 'ziniasklaida', reliability: 'B', notes: 'Bendras EN feed (filtruojama pagal temą).' },
   // Šaltiniai registruoti DB, dabar prijungti per RSS adapterius:
-  { sourceId: 'nato-hq', kind: 'rss', feedUrl: 'https://www.nato.int/cps/en/natohq/news_rss.xml', name: 'NATO oficialūs pranešimai', type: 'oficialus_nato', reliability: 'A', notes: 'NATO oficialūs pranešimai ir pareiškimai (anglų k.).' },
-  { sourceId: 'isw-ctp', kind: 'rss', feedUrl: 'https://www.understandingwar.org/rss.xml', name: 'ISW / Critical Threats', type: 'analitinis_osint', reliability: 'A', notes: 'ISW Rusijos / Ukrainos / regioninės grėsmės analizė.' },
-  { sourceId: 'lrt', kind: 'rss', feedUrl: 'https://www.lrt.lt/rss/news/lt', name: 'LRT naujienos', type: 'ziniasklaida', reliability: 'B', notes: 'Lietuvos nacionalinio transliuotojo naujienos (filtruojama pagal temą).' },
-  { sourceId: 'reuters', kind: 'rss', feedUrl: 'https://feeds.reuters.com/reuters/worldNews', name: 'Reuters', type: 'ziniasklaida', reliability: 'B', notes: 'Reuters pasaulio naujienos (filtruojama pagal temą).' },
+  // NATO: tikrinami du URL — pirmasis /rss.xml, jei 404 bandyti kitą.
+  { sourceId: 'nato-hq', kind: 'rss', feedUrl: 'https://www.nato.int/rss.xml', name: 'NATO oficialūs pranešimai', type: 'oficialus_nato', reliability: 'A', notes: 'NATO oficialūs pranešimai (anglų k.).' },
+  // ISW blokuoja serverio IP (HTTP 403) — laukia integracijos.
+  { sourceId: 'isw-ctp', kind: 'pending', feedUrl: null, name: 'ISW / Critical Threats', type: 'analitinis_osint', reliability: 'A', notes: 'understandingwar.org blokuoja serverio IP (HTTP 403). Laukia alternatyvaus priėjimo.' },
+  { sourceId: 'lrt', kind: 'rss', feedUrl: 'https://www.lrt.lt/rss/naujienos', name: 'LRT naujienos', type: 'ziniasklaida', reliability: 'B', notes: 'LRT lietuviškos naujienos (filtruojama pagal temą).' },
+  // Reuters feeds.reuters.com DNS nebeegzistuoja — laukia integracijos.
+  { sourceId: 'reuters', kind: 'pending', feedUrl: null, name: 'Reuters', type: 'ziniasklaida', reliability: 'B', notes: 'feeds.reuters.com DNS neišsprendžiamas iš serverio — Reuters RSS nutraukė viešą prieigą.' },
 ]
 
 // Ateities integracijoms — atskiri Edge Functions pagal tą patį modelį:
