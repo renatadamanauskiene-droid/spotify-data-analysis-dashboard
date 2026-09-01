@@ -46,20 +46,35 @@ function defaultConfidenceForReliability(reliability: string): 'PATVIRTINTA' | '
 // incidentai, raketinės/oro gynybos sistemos). Bendras triukšmas (sportas, orai, nesusijusios
 // pasaulio naujienos) atmetamas. Google News tiksliniai feed'ai jau relevantiški — filtras
 // pirmiausia išvalo bendrus LT/EN feed'us (15min, Delfi, BBC).
-const RELEVANCE_KEYWORDS = [
-  'baltarus', 'belarus', 'беларус', 'lukašen', 'lukashen', 'minsk', 'minsko', 'astrav',
-  'zapad', 'pratyb', 'kariuom', 'karin', 'military', 'troops', 'army', 'mobiliz',
-  'nato', 'baltijos', 'baltic', 'suvalk', 'suwałki', 'suwalki', 'kaliningrad', 'karaliauč',
+// Dvi grupės. „Belarus" tematika visada relevantiška (stebėsenos objektas). Kitais atvejais
+// reikalaujama TIKROS karinės / saugumo temos raktažodžio IR regioninio konteksto — vien šalies
+// pavadinimas (Latvia, Estonia, Rusija) NEPAKANKA, kad nebūtų įleidžiamos bendros nacionalinės
+// naujienos (turizmas, teismai, orai ir pan.) ar nesusiję pasaulio įvykiai.
+const BELARUS_KEYWORDS = ['baltarus', 'belarus', 'беларус', 'lukašen', 'lukashen', 'minsk', 'astrav', 'zapad']
+
+const MILITARY_KEYWORDS = [
+  'pratyb', 'kariuom', 'karin', 'military', 'troops', 'army', 'mobiliz', 'defen', 'gynyb',
+  'nato', 'suvalk', 'suwałki', 'suwalki', 'kaliningrad', 'karaliauč',
   'iskander', 'raket', 'missile', 'oro erdv', 'airspace', 'dron', 'drone', 'provokac',
-  'pasien', 'siena', 'border', 'geležink', 'gelezink', 'railway', 'railcar', 'ešelon', 'echelon',
+  'pasien', 'geležink', 'gelezink', 'railway', 'railcar', 'ešelon', 'echelon', 'convoy',
   'wagner', 'žvalgyb', 'zvalgyb', 'intelligence', 'reconnaissance', 'sabotag', 'sabotaž', 'diversij',
-  'estijoj', 'estonia', 'estij', 'latvijoj', 'latvia', 'latvij', 'gnss', 'glušin', 'jamming',
-  'oro gynyb', 'air defen', 'putin', 'rusijos kariuomen', 'russian troops', 'okupac',
+  'gnss', 'glušin', 'jamming', 'okupac', 'invasion', 'invaz', 'warhead', 'branduolin', 'nuclear',
+  'frontas', 'frontl', 'strike', 'smūg', 'shelling', 'apšaud', 'antpuol', 'artiler',
+  'deploy', 'dislok', 'perdisl', 'naikintuv', 'fighter jet', 'bomber', 'warship', 'laivyn', 'karyb',
+]
+
+const CONTEXT_KEYWORDS = [
+  'baltijos', 'baltic', 'lietuv', 'lithuania', 'latvij', 'latvia', 'estij', 'estonia',
+  'lenkij', 'poland', 'rusij', 'russia', 'ukrain', 'kaliningrad', 'suvalk', 'suwalki', 'suwałki', 'nato',
 ]
 
 function isRelevant(text: string): boolean {
   const t = text.toLowerCase()
-  return RELEVANCE_KEYWORDS.some((k) => t.includes(k))
+  if (BELARUS_KEYWORDS.some((k) => t.includes(k))) return true
+  const hasMilitary = MILITARY_KEYWORDS.some((k) => t.includes(k))
+  if (!hasMilitary) return false
+  // Karinė tema turi būti susijusi su mūsų regionu (Baltijos / kaimyninės šalys).
+  return CONTEXT_KEYWORDS.some((k) => t.includes(k))
 }
 
 // Regiono žymėjimas pagal raktažodžius (news_items.region — laisvas tekstas). 'suvalku_koridorius'
@@ -94,6 +109,21 @@ Deno.serve(async () => {
     }))
   if (sourceRows.length > 0) {
     await supabase.from('sources').upsert(sourceRows, { onConflict: 'id', ignoreDuplicates: true })
+  }
+
+  // Savaiminis valymas: pašalinam anksčiau įrašytus įrašus, kurie nebeatitinka (griežtesnio)
+  // relevantiškumo filtro — kad išnyktų per platų seną filtrą praėjęs triukšmas.
+  let cleaned = 0
+  try {
+    const { data: existing } = await supabase.from('news_items').select('id, raw_title, summary_lt')
+    const staleIds = (existing || []).filter((r) => !isRelevant(`${r.raw_title ?? ''} ${r.summary_lt ?? ''}`)).map((r) => r.id)
+    for (let i = 0; i < staleIds.length; i += 100) {
+      const batch = staleIds.slice(i, i + 100)
+      const { error } = await supabase.from('news_items').delete().in('id', batch)
+      if (!error) cleaned += batch.length
+    }
+  } catch (_) {
+    // valymas nekritinis
   }
 
   const { data: sources, error: sourcesError } = await supabase.from('sources').select('id, reliability, enabled')
@@ -207,7 +237,7 @@ Deno.serve(async () => {
     }
   }
 
-  return new Response(JSON.stringify({ ranAt: new Date().toISOString(), results }, null, 2), {
+  return new Response(JSON.stringify({ ranAt: new Date().toISOString(), cleanedStale: cleaned, results }, null, 2), {
     headers: { 'content-type': 'application/json' },
   })
 })
