@@ -29,8 +29,13 @@ export const rssAdapters: SourceAdapter[] = [
 ]
 
 // Ateities integracijoms (žr. UŽDUOTIES 18 skyrių) — atskiri Edge Functions pagal tą patį modelį:
-// - ingest-adsb: realus ADS-B / aviacijos OSINT šaltinis -> aviation_observations
-// - ingest-satellite: palydovinių vaizdų / analizės API -> satellite_observations
+// - ADS-B: realaus laiko duomenys jau integruoti KLIENTO pusėje per viešą OpenSky Network API
+//   (žr. src/lib/openSky.ts, Aviacijos ekranas) — atskiro server-side ingest-adsb nereikia
+//   pačiam ekranui, tačiau serverio pusės ingest-adsb prasmingas norint kaupti istoriją į
+//   aviation_observations (šiuo metu ta lentelė lieka tuščia realiu ekranu nenaudojama).
+// - ingest-satellite: palydovinių vaizdų / analizės API -> satellite_observations. NĖRA
+//   nemokamo, tam tinkamo realaus laiko šaltinio (žr. src/screens/SatelliteScreen.tsx) —
+//   reikėtų komercinio tiekėjo (Sentinel Hub, Planet Labs) API rakto.
 // - ingest-notam: NOTAM šaltinis -> notams
 // - ingest-gnss: GNSS trikdžių šaltinis -> gnss_events
 // - ingest-ai-summary: naudotojo AI (pvz. ChatGPT) santraukų endpointas -> events / news_items

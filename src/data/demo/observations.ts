@@ -1,71 +1,12 @@
-import type {
-  SatelliteObservation,
-  AviationObservation,
-  RailwayObservation,
-  MissileAirDefenseObservation,
-  GnssEvent,
-  Notam,
-  Exercise,
-} from '@/types'
+import type { RailwayObservation, MissileAirDefenseObservation, GnssEvent, Notam, Exercise } from '@/types'
 
 const hoursAgo = (h: number) => new Date(Date.now() - h * 3600 * 1000).toISOString()
 const hoursFromNow = (h: number) => new Date(Date.now() + h * 3600 * 1000).toISOString()
 
-// Visi šie masyvai — DEMO duomenys. Jokio fiktyvaus palydovinio ar ADS-B turinio nekuriama:
-// palydovinių įrašų laukai beforeImageUrl/afterImageUrl paliekami tušti, kol neintegruotas
-// realus viešas šaltinis; aviacijos įrašai apibūdina tik bendrą aktyvumo lygį, ne konkretų skrydį.
-
-export const demoSatelliteObservations: SatelliteObservation[] = [
-  {
-    id: 'sat-gomelis-1',
-    locationId: 'gomelis',
-    title: 'Papildomos technikos platformos geležinkelio mazge',
-    observedAt: hoursAgo(140),
-    whatWeSee: ['Technikos koncentracija prie iškrovimo rampos', 'Nauji platformų / konteinerių vagonai'],
-    sourceIds: ['bellingcat'],
-    confidence: 'TIKETINA',
-    region: 'baltarusija',
-    isDemo: true,
-  },
-  {
-    id: 'sat-gozh-1',
-    locationId: 'gozhskij',
-    title: 'Poligono infrastruktūros pokyčiai',
-    observedAt: hoursAgo(150),
-    whatWeSee: ['Naujos lauko įtvirtinimų žymės', 'Padidėjęs technikos tankis vienoje zonoje'],
-    sourceIds: ['isw-ctp'],
-    confidence: 'TIKETINA',
-    region: 'baltarusija',
-    isDemo: true,
-  },
-]
-
-export const demoAviationObservations: AviationObservation[] = [
-  {
-    id: 'av-lyda-1',
-    country: 'baltarusija',
-    aircraftType: 'Nenustatytas tipas — bendras aktyvumo rodiklis',
-    activity: 'Padidėjęs skrydžių dažnis, palyginti su mėnesio vidurkiu',
-    locationId: 'lyda',
-    observedAt: hoursAgo(30),
-    confidence: 'TIKETINA',
-    sourceIds: ['isw-ctp', 'lrt'],
-    region: 'baltarusija',
-    isDemo: true,
-  },
-  {
-    id: 'av-kaliningrad-1',
-    country: 'rusija',
-    aircraftType: 'Nenustatytas tipas — bendras aktyvumo rodiklis',
-    activity: 'Padidėjęs kovinės aviacijos skrydžių dažnis',
-    locationId: 'kaliningradas',
-    observedAt: hoursAgo(10),
-    confidence: 'TIKETINA',
-    sourceIds: ['isw-ctp'],
-    region: 'suvalku_koridorius',
-    isDemo: true,
-  },
-]
+// Palydovinių ir aviacijos DEMO masyvų čia sąmoningai nėra: Aviacijos ekranas naudoja realų
+// viešą OpenSky Network ADS-B API tiesiogiai iš naršyklės (žr. src/lib/openSky.ts), o Palydovų
+// ekranas visada rodo sąžiningą paaiškinimą, kodėl realaus laiko palydovinių vaizdų API
+// (nemokamo ir tam tinkamo) šiuo metu nėra — jokio fiktyvaus turinio jiems negeneruojama.
 
 export const demoRailwayObservations: RailwayObservation[] = [
   {
