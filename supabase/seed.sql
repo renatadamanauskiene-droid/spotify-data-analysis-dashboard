@@ -38,6 +38,6 @@ insert into sources (id, name, type, reliability, url, enabled, status, notes) v
   ('bellingcat', 'Bellingcat tipo OSINT analizė', 'analitinis_osint', 'B', 'https://www.bellingcat.com', true, 'laukia_integracijos', null),
   ('lrt', 'LRT naujienos', 'ziniasklaida', 'B', 'https://www.lrt.lt', true, 'laukia_integracijos', null),
   ('reuters', 'Reuters', 'ziniasklaida', 'B', 'https://www.reuters.com', true, 'laukia_integracijos', null),
-  ('osint-aviation-trackers', 'Neoficialūs ADS-B / OSINT skrydžių stebėtojai', 'analitinis_osint', 'C', '', false, 'laukia_integracijos', 'Realaus ADS-B šaltinio integracija dar neatlikta.'),
+  ('opensky-network', 'OpenSky Network (viešas ADS-B)', 'analitinis_osint', 'B', 'https://opensky-network.org', true, 'veikia', 'Realaus laiko ADS-B duomenys kviečiami tiesiogiai iš naršyklės Aviacijos ekrane (žr. src/lib/openSky.ts) — ne per šį ingest pipeline.'),
   ('unverified-telegram', 'Nepatvirtinti vietiniai Telegram kanalai', 'kitas', 'C', '', false, 'laukia_integracijos', null)
 on conflict (id) do nothing;

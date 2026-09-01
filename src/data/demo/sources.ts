@@ -85,15 +85,16 @@ export const demoSources: Source[] = [
     status: 'laukia_integracijos',
   },
   {
-    id: 'osint-aviation-trackers',
-    name: 'Neoficialūs ADS-B / OSINT skrydžių stebėtojai',
+    id: 'opensky-network',
+    name: 'OpenSky Network (viešas ADS-B)',
     type: 'analitinis_osint',
-    reliability: 'C',
-    url: '',
-    enabled: false,
+    reliability: 'B',
+    url: 'https://opensky-network.org',
+    enabled: true,
     lastSuccessfulFetch: null,
-    status: 'laukia_integracijos',
-    notes: 'Realaus ADS-B šaltinio integracija dar neatlikta — žr. src/lib/adapters.',
+    status: 'veikia',
+    notes:
+      'Realaus laiko ADS-B duomenys kviečiami tiesiogiai iš naršyklės Aviacijos ekrane. Rodo visus ADS-B signalą siunčiančius orlaivius, ne tik karinius — žr. paaiškinimą Aviacijos ekrane.',
   },
   {
     id: 'unverified-telegram',

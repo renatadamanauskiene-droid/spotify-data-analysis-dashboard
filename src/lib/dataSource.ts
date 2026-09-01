@@ -238,11 +238,15 @@ export const getEvents = () =>
 export const getIndicators = () =>
   dataMode === 'demo' ? Promise.resolve(demo.demoIndicators) : fetchTable('indicators', mapIndicator, 'as_of')
 
+// Palydovinių vaizdų DEMO turinio sąmoningai nėra (žr. src/screens/SatelliteScreen.tsx) —
+// demo režimu visada grąžinamas tuščias masyvas, kol nesukonfigūruotas realus tiekėjas.
 export const getSatelliteObservations = () =>
-  dataMode === 'demo' ? Promise.resolve(demo.demoSatelliteObservations) : fetchTable('satellite_observations', mapSatellite, 'observed_at')
+  dataMode === 'demo' ? Promise.resolve([]) : fetchTable('satellite_observations', mapSatellite, 'observed_at')
 
+// Aviacijos ekranas naudoja realų OpenSky Network API tiesiogiai (žr. src/lib/openSky.ts),
+// nepriklausomai nuo šio demo/live perjungimo — čia demo režimu grąžinamas tuščias masyvas.
 export const getAviationObservations = () =>
-  dataMode === 'demo' ? Promise.resolve(demo.demoAviationObservations) : fetchTable('aviation_observations', mapAviation, 'observed_at')
+  dataMode === 'demo' ? Promise.resolve([]) : fetchTable('aviation_observations', mapAviation, 'observed_at')
 
 export const getRailwayObservations = () =>
   dataMode === 'demo' ? Promise.resolve(demo.demoRailwayObservations) : fetchTable('railway_observations', mapRailway, 'observed_at')
