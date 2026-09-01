@@ -18,6 +18,13 @@ export interface LiveFlight {
   headingDeg: number | null
   onGround: boolean
   lastContact: string
+  // Grėsmės atpažinimui (žr. threatEngine.ts):
+  typeCode?: string | null // ICAO tipo designatorius (pvz. SU27, C17)
+  typeDesc?: string | null // žmogui skaitomas tipas (pvz. "Sukhoi Su-27")
+  category?: string | null // ADS-B emiterio kategorija (A1-A7...)
+  dbFlags?: number | null // ADS-B DB žymės (bitas 1 = karinis)
+  squawk?: string | null // atsakiklio kodas (7700/7500/7600 = avarija)
+  emergency?: string | null // paskelbta avarinė būsena
 }
 
 // Nemokamos, be rakto ADS-B API (CORS palaikomas) — adsb.fi, atsarginis adsb.lol. Pakeitė
@@ -34,6 +41,12 @@ interface AdsbAircraft {
   hex?: string
   flight?: string
   r?: string
+  t?: string
+  desc?: string
+  category?: string
+  dbFlags?: number
+  squawk?: string
+  emergency?: string
   lat?: number
   lon?: number
   alt_baro?: number | string
@@ -103,6 +116,12 @@ export async function fetchLiveFlights(
         velocityMs: typeof a.gs === 'number' ? Math.round(a.gs * 0.514444 * 10) / 10 : null,
         headingDeg: typeof a.track === 'number' ? a.track : null,
         lastContact: new Date(now - (typeof a.seen === 'number' ? a.seen * 1000 : 0)).toISOString(),
+        typeCode: a.t ?? null,
+        typeDesc: a.desc ?? null,
+        category: a.category ?? null,
+        dbFlags: typeof a.dbFlags === 'number' ? a.dbFlags : null,
+        squawk: a.squawk ?? null,
+        emergency: a.emergency ?? null,
       }
     })
     .filter((f) => f.icao24)

@@ -34,6 +34,12 @@ interface AdsbAircraft {
   hex?: string
   flight?: string
   r?: string
+  t?: string
+  desc?: string
+  category?: string
+  dbFlags?: number
+  squawk?: string
+  emergency?: string
   lat?: number
   lon?: number
   alt_baro?: number | string
@@ -115,6 +121,12 @@ Deno.serve(async () => {
           heading_deg: typeof a.track === 'number' ? a.track : null,
           on_ground: onGround,
           last_contact: new Date(nowMs - (typeof a.seen === 'number' ? a.seen * 1000 : 0)).toISOString(),
+          type_code: a.t ?? null,
+          type_desc: a.desc ?? null,
+          category: a.category ?? null,
+          db_flags: typeof a.dbFlags === 'number' ? a.dbFlags : null,
+          squawk: a.squawk ?? null,
+          emergency: a.emergency ?? null,
           fetched_at: startedAt,
         }
       })

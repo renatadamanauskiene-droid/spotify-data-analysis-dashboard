@@ -298,6 +298,12 @@ const mapLiveAircraft = (r: Record<string, unknown>): LiveFlight => ({
   headingDeg: r.heading_deg != null ? Number(r.heading_deg) : null,
   onGround: Boolean(r.on_ground),
   lastContact: r.last_contact as string,
+  typeCode: (r.type_code as string) ?? null,
+  typeDesc: (r.type_desc as string) ?? null,
+  category: (r.category as string) ?? null,
+  dbFlags: r.db_flags != null ? Number(r.db_flags) : null,
+  squawk: (r.squawk as string) ?? null,
+  emergency: (r.emergency as string) ?? null,
 })
 
 // Serverio pusėje kaupiama OpenSky talpykla (žr. supabase/functions/ingest-aviation). Naudojama

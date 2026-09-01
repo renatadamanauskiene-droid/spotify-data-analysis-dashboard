@@ -4,6 +4,13 @@ import { EmptyState } from '@/components/EmptyState'
 import { fetchLiveFlights, loadCachedFlights, saveCachedFlights, type LiveFlight } from '@/lib/openSky'
 import { getLiveAircraftCache, getDataMode } from '@/lib/dataSource'
 import { formatRelativeLt } from '@/lib/format'
+import { assessThreat, summarizeThreats, threatRank, type ThreatLevel } from '@/lib/threatEngine'
+
+const THREAT_STYLES: Record<ThreatLevel, { badge: string; label: string }> = {
+  PAVOJUS: { badge: 'border-risk-red/40 bg-risk-redBg text-risk-red', label: 'PAVOJUS' },
+  ISPEJIMAS: { badge: 'border-risk-yellow/40 bg-risk-yellowBg text-risk-yellow', label: 'ĮSPĖJIMAS' },
+  INFO: { badge: 'border-base-700 bg-base-800 text-base-400', label: 'Civilinis' },
+}
 
 const CLIENT_REFRESH_MS = 90_000
 const SERVER_REFRESH_MS = 30_000
@@ -132,6 +139,8 @@ export default function AviationScreen() {
     return c
   }, [flights])
 
+  const threat = useMemo(() => summarizeThreats(flights), [flights])
+
   return (
     <div>
       <ScreenHeader
@@ -144,18 +153,45 @@ export default function AviationScreen() {
             }`}
           >
             <span className={`h-1.5 w-1.5 rounded-full ${isStale ? 'bg-risk-yellow' : 'bg-risk-green'}`} />
-            {isStale ? 'PASENĘ' : 'LIVE'} — OpenSky Network{source === 'client' ? ' (naršyklė)' : ' (serveris)'}
+            {isStale ? 'PASENĘ' : 'LIVE'} — ADS-B (adsb.fi){source === 'client' ? ' (naršyklė)' : ' (serveris)'}
           </span>
         }
       />
 
+      {/* Grėsmės santrauka — automatiškai atpažinti kariniai orlaiviai zonoje. */}
+      {status === 'ok' && (
+        <div
+          className={`mb-4 rounded-xl border p-3.5 ${
+            threat.pavojus > 0
+              ? 'border-risk-red/40 bg-risk-redBg'
+              : threat.ispejimas > 0
+                ? 'border-risk-yellow/40 bg-risk-yellowBg'
+                : 'border-risk-green/30 bg-risk-greenBg'
+          }`}
+        >
+          <p
+            className={`text-sm font-semibold ${
+              threat.pavojus > 0 ? 'text-risk-red' : threat.ispejimas > 0 ? 'text-risk-yellow' : 'text-risk-green'
+            }`}
+          >
+            {threat.pavojus > 0
+              ? `PAVOJUS — ${threat.pavojus} potencialiai pavojingas (-ų) objektas (-ai)`
+              : threat.ispejimas > 0
+                ? `ĮSPĖJIMAS — ${threat.military} karinis (-ių) orlaivis (-ių) zonoje`
+                : 'Karinių orlaivių ADS-B signalo šiuo metu nefiksuota'}
+          </p>
+          {threat.topClasses.length > 0 && (
+            <p className="mt-1 text-xs text-base-300">{threat.topClasses.join(' · ')}</p>
+          )}
+        </div>
+      )}
+
       <div className="mb-4 rounded-xl border border-base-700 bg-base-900 p-3 text-xs leading-relaxed text-base-400">
-        Šie duomenys — realaus laiko ADS-B transliacijos iš viešo OpenSky Network tinklo, apimančios{' '}
-        <strong className="text-base-300">visus</strong> ADS-B signalą siunčiančius orlaivius stebimoje zonoje, ne vien karinius. Daug karinių
-        orlaivių ADS-B netransliuoja arba naudoja neviešus kodus — jų nebuvimas šiame sąraše NEREIŠKIA aktyvumo nebuvimo, o šalies žyma
-        („registruota: Rusija/Baltarusija“) yra ICAO24 adreso registracijos šalis, ne patvirtinta orlaivio paskirtis.
-        {source === 'client' &&
-          ' Duomenys šiuo metu gaunami tiesiai iš tavo naršyklės (serverio talpykla tuščia arba OpenSky jos nepasiekia) — anoniminė prieiga kartais laikinai grąžina klaidą (HTTP 503) piko metu.'}
+        Šie duomenys — realaus laiko ADS-B transliacijos iš viešo <strong className="text-base-300">adsb.fi / adsb.lol</strong> tinklo,
+        apimančios <strong className="text-base-300">visus</strong> ADS-B signalą siunčiančius orlaivius zonoje. Grėsmės žyma
+        (ĮSPĖJIMAS/PAVOJUS) nustatoma pagal orlaivio <strong className="text-base-300">tipą</strong> (naikintuvas, bombonešis, transportas,
+        dronas) ir karinio orlaivio žymę — tai tik ankstyvo dėmesio indikatorius, NE patvirtinta grėsmė. Daug karinių orlaivių ADS-B
+        netransliuoja, o <strong className="text-base-300">Shahed tipo dronai ir raketos ADS-B nesiunčia</strong> — jų čia nebus (žr. Srautą).
       </div>
 
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
@@ -185,7 +221,7 @@ export default function AviationScreen() {
       </p>
 
       {status === 'error' && (
-        <EmptyState title="Nepavyko prisijungti prie OpenSky API" hint={error || 'Patikrinkite interneto ryšį ir bandykite dar kartą.'} />
+        <EmptyState title="Nepavyko prisijungti prie ADS-B API" hint={error || 'Patikrinkite interneto ryšį ir bandykite dar kartą.'} />
       )}
 
       {status !== 'error' && filtered.length === 0 && status === 'ok' && (
@@ -196,26 +232,49 @@ export default function AviationScreen() {
         <ul className="space-y-2">
           {filtered
             .slice()
-            .sort((a, b) => (b.baroAltitudeM || 0) - (a.baroAltitudeM || 0))
+            .sort((a, b) => threatRank(b) - threatRank(a) || (b.baroAltitudeM || 0) - (a.baroAltitudeM || 0))
             .slice(0, 100)
-            .map((f) => (
-              <li key={f.icao24} className="rounded-xl border border-base-700 bg-base-850 p-3.5">
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <p className="text-sm font-medium text-base-100">{f.callsign || 'Be šaukinio'}</p>
-                    <p className="text-xs text-base-500">
-                      ICAO24: {f.icao24} · Registruota: {f.originCountry}
-                    </p>
+            .map((f) => {
+              const a = assessThreat(f)
+              const style = THREAT_STYLES[a.level]
+              return (
+                <li
+                  key={f.icao24}
+                  className={`rounded-xl border bg-base-850 p-3.5 ${
+                    a.level === 'PAVOJUS' ? 'border-risk-red/50' : a.level === 'ISPEJIMAS' ? 'border-risk-yellow/40' : 'border-base-700'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-sm font-medium text-base-100">{f.callsign || 'Be šaukinio'}</p>
+                        {a.isMilitary && (
+                          <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${style.badge}`}>
+                            {a.level === 'INFO' ? 'KARINIS' : style.label}
+                          </span>
+                        )}
+                        {a.isMilitary && <span className="text-[11px] font-medium text-base-300">{a.classLabel}</span>}
+                      </div>
+                      <p className="mt-0.5 text-xs text-base-500">
+                        ICAO24: {f.icao24} · Registruota: {f.originCountry}
+                        {f.typeDesc ? ` · ${f.typeDesc}` : f.typeCode ? ` · ${f.typeCode}` : ''}
+                      </p>
+                    </div>
+                    <span className="shrink-0 rounded-full bg-base-800 px-2 py-0.5 text-[11px] text-base-300">
+                      {f.onGround ? 'Ant žemės' : 'Ore'}
+                    </span>
                   </div>
-                  <span className="rounded-full bg-base-800 px-2 py-0.5 text-[11px] text-base-300">{f.onGround ? 'Ant žemės' : 'Ore'}</span>
-                </div>
-                <div className="mt-2 grid grid-cols-3 gap-2 text-[11px] text-base-400">
-                  <span>Aukštis: {f.baroAltitudeM != null ? `${Math.round(f.baroAltitudeM)} m` : '—'}</span>
-                  <span>Greitis: {f.velocityMs != null ? `${Math.round(f.velocityMs * 3.6)} km/h` : '—'}</span>
-                  <span>Kryptis: {f.headingDeg != null ? `${Math.round(f.headingDeg)}°` : '—'}</span>
-                </div>
-              </li>
-            ))}
+                  {a.isMilitary && a.reasons.length > 0 && (
+                    <p className="mt-1.5 text-[11px] text-base-400">{a.reasons.join(' · ')}</p>
+                  )}
+                  <div className="mt-2 grid grid-cols-3 gap-2 text-[11px] text-base-400">
+                    <span>Aukštis: {f.baroAltitudeM != null ? `${Math.round(f.baroAltitudeM)} m` : '—'}</span>
+                    <span>Greitis: {f.velocityMs != null ? `${Math.round(f.velocityMs * 3.6)} km/h` : '—'}</span>
+                    <span>Kryptis: {f.headingDeg != null ? `${Math.round(f.headingDeg)}°` : '—'}</span>
+                  </div>
+                </li>
+              )
+            })}
         </ul>
       )}
 
