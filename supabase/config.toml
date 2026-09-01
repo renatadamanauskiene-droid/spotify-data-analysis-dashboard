@@ -1,0 +1,11 @@
+# Supabase CLI projekto konfigūracija. project_id turi sutapti su realaus projekto ref.
+project_id = "wmhvjwuzxgwlqxgkksfa"
+
+[functions.ingest-rss]
+verify_jwt = true
+
+[functions.ingest-gnss]
+verify_jwt = true
+
+[functions.compute-risk-and-notify]
+verify_jwt = true
