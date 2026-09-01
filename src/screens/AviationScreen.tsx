@@ -27,12 +27,16 @@ const FILTERS: { key: CountryFilter; label: string }[] = [
 ]
 
 /**
- * LIVE (Supabase sukonfigūruotas): skaito iš `live_aircraft_cache`, kurią kas 1-2 min. pildo
- * serverio pusės Edge Function `ingest-aviation` — vienas centrinis OpenSky kvietimas visiems
- * vartotojams, apeinantis anoniminės prieigos limitus.
- * DEMO (Supabase nesukonfigūruotas): naršyklė kviečia OpenSky tiesiogiai. Kadangi anoniminė
- * OpenSky prieiga dažnai grąžina HTTP 503 pikinio apkrovimo metu, laikina klaida NEPALIEKA
- * ekrano tuščio — rodomi paskutiniai localStorage išsaugoti sėkmingi duomenys su "pasenę" žyma.
+ * LIVE (Supabase sukonfigūruotas): pirmiausia bandoma skaityti iš `live_aircraft_cache`, kurią
+ * kas 1-2 min. turėtų pildyti serverio pusės Edge Function `ingest-aviation`. Kai kurie debesijos
+ * tiekėjai (taip pat ir Supabase Edge Functions) OpenSky gali būti blokuojami IP lygmenyje (ne
+ * tik rate limit, o pilna laiko limito klaida) — tokiu atveju, jei serverio talpykla tuščia,
+ * ekranas AUTOMATIŠKAI krenta atgal prie tiesioginio kvietimo iš naršyklės, nes naršyklės IP
+ * dažnai vis dar pasiekia OpenSky, kai serveris negali. Naudojamas šaltinis visada aiškiai
+ * parodomas naudotojui.
+ * DEMO (Supabase nesukonfigūruotas): iš karto naudojamas tiesioginis naršyklės kvietimas.
+ * Abiem atvejais laikina klaida NEPALIEKA ekrano tuščio — rodomi paskutiniai localStorage
+ * išsaugoti sėkmingi duomenys su "pasenę" žyma.
  */
 function useLiveFlights() {
   const mode = getDataMode()
@@ -41,18 +45,9 @@ function useLiveFlights() {
   const [error, setError] = useState<string | null>(null)
   const [updatedAt, setUpdatedAt] = useState<string | null>(null)
   const [isStale, setIsStale] = useState(false)
-
-  const loadServer = useCallback(async () => {
-    setStatus((prev) => (prev === 'ok' ? 'ok' : 'loading'))
-    const data = await getLiveAircraftCache()
-    setFlights(data)
-    setStatus('ok')
-    setIsStale(false)
-    setUpdatedAt(new Date().toISOString())
-  }, [])
+  const [source, setSource] = useState<'server' | 'client'>('client')
 
   const loadClient = useCallback(async (signal?: AbortSignal) => {
-    setStatus((prev) => (prev === 'ok' ? 'ok' : 'loading'))
     try {
       const data = await fetchLiveFlights(undefined, signal)
       setFlights(data)
@@ -61,6 +56,7 @@ function useLiveFlights() {
       setIsStale(false)
       setError(null)
       setUpdatedAt(new Date().toISOString())
+      setSource('client')
     } catch (err) {
       if ((err as Error).name === 'AbortError') return
       const message = err instanceof Error ? err.message : 'Nepavyko gauti duomenų.'
@@ -71,6 +67,7 @@ function useLiveFlights() {
         setIsStale(true)
         setStatus('ok')
         setError(message)
+        setSource('client')
       } else {
         setStatus('error')
         setError(message)
@@ -78,33 +75,51 @@ function useLiveFlights() {
     }
   }, [])
 
+  const loadServerThenClient = useCallback(
+    async (signal?: AbortSignal) => {
+      const data = await getLiveAircraftCache()
+      if (data.length > 0) {
+        setFlights(data)
+        setStatus('ok')
+        setIsStale(false)
+        setError(null)
+        setUpdatedAt(new Date().toISOString())
+        setSource('server')
+        return
+      }
+      // Serverio talpykla tuščia (dar nepaleista arba OpenSky nepasiekiama iš serverio) —
+      // bandome tiesiogiai iš naršyklės.
+      await loadClient(signal)
+    },
+    [loadClient],
+  )
+
   useEffect(() => {
-    if (mode === 'live') {
-      loadServer()
-      const interval = setInterval(loadServer, SERVER_REFRESH_MS)
-      return () => clearInterval(interval)
-    }
+    setStatus('loading')
     const controller = new AbortController()
+    const load = mode === 'live' ? loadServerThenClient : loadClient
+    const refreshMs = mode === 'live' ? SERVER_REFRESH_MS : CLIENT_REFRESH_MS
+
     const cached = loadCachedFlights()
     if (cached) {
       setFlights(cached.flights)
       setUpdatedAt(cached.fetchedAt)
     }
-    loadClient(controller.signal)
-    const interval = setInterval(() => loadClient(), CLIENT_REFRESH_MS)
+
+    load(controller.signal)
+    const interval = setInterval(() => load(), refreshMs)
     return () => {
       controller.abort()
       clearInterval(interval)
     }
-  }, [mode, loadServer, loadClient])
+  }, [mode, loadServerThenClient, loadClient])
 
-  return { flights, status, error, updatedAt, isStale, reload: mode === 'live' ? loadServer : () => loadClient() }
+  return { flights, status, error, updatedAt, isStale, source, reload: () => (mode === 'live' ? loadServerThenClient() : loadClient()) }
 }
 
 export default function AviationScreen() {
-  const { flights, status, error, updatedAt, isStale, reload } = useLiveFlights()
+  const { flights, status, error, updatedAt, isStale, source, reload } = useLiveFlights()
   const [filter, setFilter] = useState<CountryFilter>('visi')
-  const mode = getDataMode()
 
   const filtered = useMemo(() => {
     if (filter === 'visi') return flights
@@ -129,7 +144,7 @@ export default function AviationScreen() {
             }`}
           >
             <span className={`h-1.5 w-1.5 rounded-full ${isStale ? 'bg-risk-yellow' : 'bg-risk-green'}`} />
-            {isStale ? 'PASENĘ' : 'LIVE'} — OpenSky Network
+            {isStale ? 'PASENĘ' : 'LIVE'} — OpenSky Network{source === 'client' ? ' (naršyklė)' : ' (serveris)'}
           </span>
         }
       />
@@ -139,7 +154,8 @@ export default function AviationScreen() {
         <strong className="text-base-300">visus</strong> ADS-B signalą siunčiančius orlaivius stebimoje zonoje, ne vien karinius. Daug karinių
         orlaivių ADS-B netransliuoja arba naudoja neviešus kodus — jų nebuvimas šiame sąraše NEREIŠKIA aktyvumo nebuvimo, o šalies žyma
         („registruota: Rusija/Baltarusija“) yra ICAO24 adreso registracijos šalis, ne patvirtinta orlaivio paskirtis.
-        {mode === 'demo' && ' Kadangi backend dar nesukonfigūruotas, naršyklė kreipiasi tiesiai į OpenSky — anoniminė prieiga kartais laikinai grąžina klaidą (HTTP 503) piko metu.'}
+        {source === 'client' &&
+          ' Duomenys šiuo metu gaunami tiesiai iš tavo naršyklės (serverio talpykla tuščia arba OpenSky jos nepasiekia) — anoniminė prieiga kartais laikinai grąžina klaidą (HTTP 503) piko metu.'}
       </div>
 
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
