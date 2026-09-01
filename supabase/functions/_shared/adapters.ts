@@ -119,10 +119,17 @@ export const rssAdapters: SourceAdapter[] = [
 
   // --- Papildomi šaltiniai (filtruojami pagal temą) --------------------------------------------
   { sourceId: 'bellingcat', kind: 'rss', feedUrl: 'https://www.bellingcat.com/feed/', name: 'Bellingcat', type: 'analitinis_osint', reliability: 'B', notes: 'OSINT tyrimai.' },
-  { sourceId: 'kam', kind: 'rss', feedUrl: 'https://kam.lt/feed/', name: 'Krašto apsaugos ministerija (KAM)', type: 'oficialus_lt', reliability: 'A', notes: 'KAM RSS (kartais blokuoja serverio IP).' },
+  // KAM blokuoja debesijos (Supabase) IP diapazonus — HTTP 403. feedUrl=null sustabdo bandymus,
+  // ingest-rss atstatys statusą į 'laukia_integracijos' vietoje 'sutrikimas'.
+  { sourceId: 'kam', kind: 'pending', feedUrl: null, name: 'Krašto apsaugos ministerija (KAM)', type: 'oficialus_lt', reliability: 'A', notes: 'kam.lt/feed/ blokuoja serverio (debesijos) IP — HTTP 403. Laukia alternatyvaus priėjimo.' },
   { sourceId: '15min', kind: 'rss', feedUrl: 'https://www.15min.lt/rss', name: '15min.lt', type: 'ziniasklaida', reliability: 'B', notes: 'Bendras LT feed (filtruojama pagal temą).' },
   { sourceId: 'delfi', kind: 'rss', feedUrl: 'https://www.delfi.lt/rss/feeds/lithuania.xml', name: 'Delfi.lt', type: 'ziniasklaida', reliability: 'B', notes: 'Bendras LT feed (filtruojama pagal temą).' },
   { sourceId: 'bbc-europe', kind: 'rss', feedUrl: 'https://feeds.bbci.co.uk/news/world/europe/rss.xml', name: 'BBC News (Europa)', type: 'ziniasklaida', reliability: 'B', notes: 'Bendras EN feed (filtruojama pagal temą).' },
+  // Šaltiniai registruoti DB, dabar prijungti per RSS adapterius:
+  { sourceId: 'nato-hq', kind: 'rss', feedUrl: 'https://www.nato.int/cps/en/natohq/news_rss.xml', name: 'NATO oficialūs pranešimai', type: 'oficialus_nato', reliability: 'A', notes: 'NATO oficialūs pranešimai ir pareiškimai (anglų k.).' },
+  { sourceId: 'isw-ctp', kind: 'rss', feedUrl: 'https://www.understandingwar.org/rss.xml', name: 'ISW / Critical Threats', type: 'analitinis_osint', reliability: 'A', notes: 'ISW Rusijos / Ukrainos / regioninės grėsmės analizė.' },
+  { sourceId: 'lrt', kind: 'rss', feedUrl: 'https://www.lrt.lt/rss/news/lt', name: 'LRT naujienos', type: 'ziniasklaida', reliability: 'B', notes: 'Lietuvos nacionalinio transliuotojo naujienos (filtruojama pagal temą).' },
+  { sourceId: 'reuters', kind: 'rss', feedUrl: 'https://feeds.reuters.com/reuters/worldNews', name: 'Reuters', type: 'ziniasklaida', reliability: 'B', notes: 'Reuters pasaulio naujienos (filtruojama pagal temą).' },
 ]
 
 // Ateities integracijoms — atskiri Edge Functions pagal tą patį modelį:
