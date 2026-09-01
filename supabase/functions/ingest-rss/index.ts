@@ -139,6 +139,11 @@ Deno.serve(async () => {
     const source = sourcesById.get(adapter.sourceId)
 
     if (!source || !source.enabled || !adapter.feedUrl) {
+      // feedUrl=null reiškia laukia_integracijos (pvz. blokuojamas serverio IP). Atstatom statusą,
+      // kad senasis 'sutrikimas' nebliktu rodomas vartotojui po feedUrl pašalinimo.
+      if (source && !adapter.feedUrl) {
+        await supabase.from('sources').update({ status: 'laukia_integracijos' }).eq('id', adapter.sourceId)
+      }
       await supabase.from('ingestion_runs').insert({
         source_id: adapter.sourceId,
         started_at: startedAt,
