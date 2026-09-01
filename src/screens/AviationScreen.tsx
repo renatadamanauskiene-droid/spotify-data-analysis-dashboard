@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState, useCallback } from 'react'
 import { ScreenHeader } from '@/components/ScreenHeader'
 import { EmptyState } from '@/components/EmptyState'
-import { fetchLiveFlights, type LiveFlight } from '@/lib/openSky'
+import { fetchLiveFlights, loadCachedFlights, saveCachedFlights, type LiveFlight } from '@/lib/openSky'
+import { getLiveAircraftCache, getDataMode } from '@/lib/dataSource'
 import { formatRelativeLt } from '@/lib/format'
 
-const REFRESH_MS = 60_000
+const CLIENT_REFRESH_MS = 90_000
+const SERVER_REFRESH_MS = 30_000
 
 type CountryFilter = 'visi' | 'baltarusija' | 'rusija' | 'lietuva' | 'kita'
 
@@ -24,43 +26,85 @@ const FILTERS: { key: CountryFilter; label: string }[] = [
   { key: 'kita', label: 'Kita' },
 ]
 
+/**
+ * LIVE (Supabase sukonfigūruotas): skaito iš `live_aircraft_cache`, kurią kas 1-2 min. pildo
+ * serverio pusės Edge Function `ingest-aviation` — vienas centrinis OpenSky kvietimas visiems
+ * vartotojams, apeinantis anoniminės prieigos limitus.
+ * DEMO (Supabase nesukonfigūruotas): naršyklė kviečia OpenSky tiesiogiai. Kadangi anoniminė
+ * OpenSky prieiga dažnai grąžina HTTP 503 pikinio apkrovimo metu, laikina klaida NEPALIEKA
+ * ekrano tuščio — rodomi paskutiniai localStorage išsaugoti sėkmingi duomenys su "pasenę" žyma.
+ */
 function useLiveFlights() {
+  const mode = getDataMode()
   const [flights, setFlights] = useState<LiveFlight[]>([])
   const [status, setStatus] = useState<'loading' | 'ok' | 'error'>('loading')
   const [error, setError] = useState<string | null>(null)
   const [updatedAt, setUpdatedAt] = useState<string | null>(null)
+  const [isStale, setIsStale] = useState(false)
 
-  const load = useCallback(async (signal?: AbortSignal) => {
+  const loadServer = useCallback(async () => {
+    setStatus((prev) => (prev === 'ok' ? 'ok' : 'loading'))
+    const data = await getLiveAircraftCache()
+    setFlights(data)
+    setStatus('ok')
+    setIsStale(false)
+    setUpdatedAt(new Date().toISOString())
+  }, [])
+
+  const loadClient = useCallback(async (signal?: AbortSignal) => {
     setStatus((prev) => (prev === 'ok' ? 'ok' : 'loading'))
     try {
       const data = await fetchLiveFlights(undefined, signal)
       setFlights(data)
+      saveCachedFlights(data)
       setStatus('ok')
+      setIsStale(false)
       setError(null)
       setUpdatedAt(new Date().toISOString())
     } catch (err) {
       if ((err as Error).name === 'AbortError') return
-      setStatus('error')
-      setError(err instanceof Error ? err.message : 'Nepavyko gauti duomenų.')
+      const message = err instanceof Error ? err.message : 'Nepavyko gauti duomenų.'
+      const cached = loadCachedFlights()
+      if (cached) {
+        setFlights(cached.flights)
+        setUpdatedAt(cached.fetchedAt)
+        setIsStale(true)
+        setStatus('ok')
+        setError(message)
+      } else {
+        setStatus('error')
+        setError(message)
+      }
     }
   }, [])
 
   useEffect(() => {
+    if (mode === 'live') {
+      loadServer()
+      const interval = setInterval(loadServer, SERVER_REFRESH_MS)
+      return () => clearInterval(interval)
+    }
     const controller = new AbortController()
-    load(controller.signal)
-    const interval = setInterval(() => load(), REFRESH_MS)
+    const cached = loadCachedFlights()
+    if (cached) {
+      setFlights(cached.flights)
+      setUpdatedAt(cached.fetchedAt)
+    }
+    loadClient(controller.signal)
+    const interval = setInterval(() => loadClient(), CLIENT_REFRESH_MS)
     return () => {
       controller.abort()
       clearInterval(interval)
     }
-  }, [load])
+  }, [mode, loadServer, loadClient])
 
-  return { flights, status, error, updatedAt, reload: () => load() }
+  return { flights, status, error, updatedAt, isStale, reload: mode === 'live' ? loadServer : () => loadClient() }
 }
 
 export default function AviationScreen() {
-  const { flights, status, error, updatedAt, reload } = useLiveFlights()
+  const { flights, status, error, updatedAt, isStale, reload } = useLiveFlights()
   const [filter, setFilter] = useState<CountryFilter>('visi')
+  const mode = getDataMode()
 
   const filtered = useMemo(() => {
     if (filter === 'visi') return flights
@@ -79,8 +123,13 @@ export default function AviationScreen() {
         title="Aviacija"
         subtitle="Gyvi ADS-B duomenys virš Baltarusijos, Kaliningrado ir Lietuvos"
         action={
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-risk-green/30 bg-risk-greenBg px-2.5 py-1 text-[11px] font-semibold text-risk-green">
-            <span className="h-1.5 w-1.5 rounded-full bg-risk-green" /> LIVE — OpenSky Network
+          <span
+            className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold ${
+              isStale ? 'border-risk-yellow/30 bg-risk-yellowBg text-risk-yellow' : 'border-risk-green/30 bg-risk-greenBg text-risk-green'
+            }`}
+          >
+            <span className={`h-1.5 w-1.5 rounded-full ${isStale ? 'bg-risk-yellow' : 'bg-risk-green'}`} />
+            {isStale ? 'PASENĘ' : 'LIVE'} — OpenSky Network
           </span>
         }
       />
@@ -90,6 +139,7 @@ export default function AviationScreen() {
         <strong className="text-base-300">visus</strong> ADS-B signalą siunčiančius orlaivius stebimoje zonoje, ne vien karinius. Daug karinių
         orlaivių ADS-B netransliuoja arba naudoja neviešus kodus — jų nebuvimas šiame sąraše NEREIŠKIA aktyvumo nebuvimo, o šalies žyma
         („registruota: Rusija/Baltarusija“) yra ICAO24 adreso registracijos šalis, ne patvirtinta orlaivio paskirtis.
+        {mode === 'demo' && ' Kadangi backend dar nesukonfigūruotas, naršyklė kreipiasi tiesiai į OpenSky — anoniminė prieiga kartais laikinai grąžina klaidą (HTTP 503) piko metu.'}
       </div>
 
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
@@ -113,7 +163,8 @@ export default function AviationScreen() {
 
       <p className="mb-3 text-[11px] text-base-500">
         {status === 'loading' && 'Kraunama...'}
-        {status === 'ok' && updatedAt && `Atnaujinta ${formatRelativeLt(updatedAt)} · automatiškai kas 60 s`}
+        {status === 'ok' && updatedAt && !isStale && `Atnaujinta ${formatRelativeLt(updatedAt)} · automatiškai`}
+        {status === 'ok' && updatedAt && isStale && `Paskutiniai žinomi duomenys — ${formatRelativeLt(updatedAt)}. ${error || ''}`}
         {status === 'error' && 'Paskutinis sėkmingas atnaujinimas nepavyko.'}
       </p>
 
@@ -122,7 +173,7 @@ export default function AviationScreen() {
       )}
 
       {status !== 'error' && filtered.length === 0 && status === 'ok' && (
-        <EmptyState title="Šiuo metu šioje zonoje ADS-B signalo nefiksuota" hint="Duomenys atnaujinami automatiškai kas 60 sekundžių." />
+        <EmptyState title="Šiuo metu šioje zonoje ADS-B signalo nefiksuota" hint="Duomenys atnaujinami automatiškai." />
       )}
 
       {filtered.length > 0 && (

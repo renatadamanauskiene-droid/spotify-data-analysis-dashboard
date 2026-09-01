@@ -29,10 +29,11 @@ export const rssAdapters: SourceAdapter[] = [
 ]
 
 // Ateities integracijoms (žr. UŽDUOTIES 18 skyrių) — atskiri Edge Functions pagal tą patį modelį:
-// - ADS-B: realaus laiko duomenys jau integruoti KLIENTO pusėje per viešą OpenSky Network API
-//   (žr. src/lib/openSky.ts, Aviacijos ekranas) — atskiro server-side ingest-adsb nereikia
-//   pačiam ekranui, tačiau serverio pusės ingest-adsb prasmingas norint kaupti istoriją į
-//   aviation_observations (šiuo metu ta lentelė lieka tuščia realiu ekranu nenaudojama).
+// - ADS-B: JAU ĮGYVENDINTA — supabase/functions/ingest-aviation kas 1-2 min. kviečia OpenSky
+//   Network serverio pusėje ir rašo į `live_aircraft_cache`. Kai Supabase sukonfigūruotas,
+//   Aviacijos ekranas skaito iš ten (visiems vartotojams bendra talpykla, apeinanti OpenSky
+//   anoniminės prieigos limitus); kol Supabase nesukonfigūruotas, ekranas krenta atgal prie
+//   tiesioginio OpenSky kvietimo iš naršyklės (žr. src/lib/openSky.ts).
 // - ingest-satellite: palydovinių vaizdų / analizės API -> satellite_observations. NĖRA
 //   nemokamo, tam tinkamo realaus laiko šaltinio (žr. src/screens/SatelliteScreen.tsx) —
 //   reikėtų komercinio tiekėjo (Sentinel Hub, Planet Labs) API rakto.

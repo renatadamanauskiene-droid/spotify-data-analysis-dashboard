@@ -43,14 +43,15 @@ Be jokios konfigūracijos programėlė veikia **DEMO režimu** — visi duomenys
 Serverio pusės (Deno) Edge Functions `supabase/functions/`:
 
 - `ingest-rss` — RSS/Atom naujienų surinkimas į `news_items`, su dedup pagal `sha256(šaltinis|nuoroda|antraštė|data)`. Adapterių registras: `supabase/functions/_shared/adapters.ts` — kol konkretaus šaltinio `feedUrl` nenustatytas, jis aiškiai praleidžiamas ir tai fiksuojama `ingestion_runs` lentelėje (**jokio fiktyvaus turinio negeneruojama**).
+- `ingest-aviation` — kas 1-2 min. kviečia viešą OpenSky Network ADS-B API **serverio pusėje** ir perrašo `live_aircraft_cache` lentelę. Vienas centrinis kvietimas visiems vartotojams — apeina OpenSky anoniminės prieigos apribojimus (rate limit / periodinis HTTP 503), kurie kildavo, kai kiekviena naršyklė kviesdavo API atskirai. Neprivalomi `OPENSKY_CLIENT_ID` / `OPENSKY_CLIENT_SECRET` (nemokama registracija OpenSky) suteikia žymiai didesnę kvotą per OAuth2 `client_credentials` srautą — be jų naudojama anoniminė prieiga. Kol Supabase nesukonfigūruotas, Aviacijos ekranas savarankiškai krenta atgal prie tiesioginio OpenSky kvietimo iš naršyklės (žr. `src/lib/openSky.ts`), su paskutinių sėkmingų duomenų talpykla `localStorage`, kad laikina 503 klaida nepaliktų ekrano tuščio.
 - `compute-risk-and-notify` — perskaičiuoja rizikos lygį (ta pati logika kaip `src/lib/riskEngine.ts`), atnaujina `daily_snapshots`, sukuria `alerts` įrašus ir siunčia Web Push pranešimus per VAPID raktus.
 - `register-push-subscription` — priima kliento Web Push prenumeratą ir nustatymus, išsaugo `push_subscriptions` (privati lentelė, be anon skaitymo/rašymo).
 
-Paleidimas pagal grafiką: Supabase Dashboard → Edge Functions → Schedule, arba `pg_cron` + `pg_net`.
+Paleidimas pagal grafiką: Supabase Dashboard → Edge Functions → Schedule, arba `pg_cron` + `pg_net`. `ingest-aviation` rekomenduojama kas 1-2 min., kitos — kas 15-60 min.
 
 ### Vėlesnei integracijai paruošti adapteriai
 
-- Realus ADS-B / aviacijos OSINT šaltinis → `aviation_observations`
+- Realus ADS-B / aviacijos OSINT šaltinis → **jau įgyvendinta**, žr. `ingest-aviation` aukščiau.
 - Palydovinių vaizdų / analizės API → `satellite_observations`
 - NOTAM šaltinis → `notams`
 - GNSS trikdžių šaltinis → `gnss_events`
@@ -86,7 +87,7 @@ src/
 supabase/
   migrations/        DB schema + RLS
   seed.sql           Lokacijos + šaltinių registras (be demo įvykių)
-  functions/         Edge Functions (ingest-rss, compute-risk-and-notify, register-push-subscription)
+  functions/         Edge Functions (ingest-rss, ingest-aviation, compute-risk-and-notify, register-push-subscription)
 ```
 
 ## Autorius
