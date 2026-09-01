@@ -94,7 +94,7 @@ export const demoSources: Source[] = [
     lastSuccessfulFetch: null,
     status: 'veikia',
     notes:
-      'Realaus laiko ADS-B duomenys kviečiami tiesiogiai iš naršyklės Aviacijos ekrane. Rodo visus ADS-B signalą siunčiančius orlaivius, ne tik karinius — žr. paaiškinimą Aviacijos ekrane.',
+      'LIVE režimu: serverio pusės ingest-aviation Edge Function kas 1-2 min. kaupia duomenis į live_aircraft_cache, ekranas skaito iš ten. DEMO režimu (Supabase nesukonfigūruotas): naršyklė kreipiasi tiesiai į OpenSky. Rodo visus ADS-B signalą siunčiančius orlaivius, ne tik karinius.',
   },
   {
     id: 'unverified-telegram',

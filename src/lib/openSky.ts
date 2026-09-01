@@ -46,6 +46,11 @@ export async function fetchLiveFlights(
   if (res.status === 429) {
     throw new Error('OpenSky API užklausų limitas šiuo metu viršytas. Bandykite po kelių minučių.')
   }
+  if (res.status === 503) {
+    throw new Error(
+      'OpenSky serveris šiuo metu perkrautas (HTTP 503) — tai žinomas anoniminės prieigos apribojimas, ne programėlės klaida. Rodomi paskutiniai žinomi duomenys, jei yra.',
+    )
+  }
   if (!res.ok) {
     throw new Error(`OpenSky API klaida (HTTP ${res.status}).`)
   }
@@ -67,4 +72,32 @@ export async function fetchLiveFlights(
       lastContact: new Date(((typeof s[4] === 'number' ? s[4] : data.time) || data.time) * 1000).toISOString(),
     }))
     .filter((f) => f.icao24)
+}
+
+// Paskutinis sėkmingas kliento pusės OpenSky atsakymas laikomas localStorage, kad laikina
+// klaida (pvz. 503 pikinio apkrovimo metu) nepaliktų ekrano tuščio — vietoje to rodomi
+// paskutiniai žinomi duomenys su aiškia "pasenę" žyma.
+const CACHE_KEY = 'by-stebesena:opensky-cache'
+
+export interface CachedFlights {
+  fetchedAt: string
+  flights: LiveFlight[]
+}
+
+export function saveCachedFlights(flights: LiveFlight[]): void {
+  try {
+    const payload: CachedFlights = { fetchedAt: new Date().toISOString(), flights }
+    localStorage.setItem(CACHE_KEY, JSON.stringify(payload))
+  } catch {
+    // localStorage gali būti nepasiekiama — praleidžiama tyliai.
+  }
+}
+
+export function loadCachedFlights(): CachedFlights | null {
+  try {
+    const raw = localStorage.getItem(CACHE_KEY)
+    return raw ? (JSON.parse(raw) as CachedFlights) : null
+  } catch {
+    return null
+  }
 }

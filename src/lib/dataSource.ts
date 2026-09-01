@@ -6,6 +6,7 @@
 
 import { supabase, dataMode } from './supabase'
 import * as demo from '@/data/demo'
+import type { LiveFlight } from './openSky'
 import type {
   Source,
   LocationPoint,
@@ -270,3 +271,22 @@ export const getAlerts = () => (dataMode === 'demo' ? Promise.resolve(demo.demoA
 
 export const getSnapshots = () =>
   dataMode === 'demo' ? Promise.resolve(demo.demoSnapshots) : fetchTable('daily_snapshots', mapSnapshot, 'date')
+
+const mapLiveAircraft = (r: Record<string, unknown>): LiveFlight => ({
+  icao24: r.icao24 as string,
+  callsign: (r.callsign as string) || null,
+  originCountry: r.origin_country as string,
+  lat: r.lat != null ? Number(r.lat) : null,
+  lng: r.lng != null ? Number(r.lng) : null,
+  baroAltitudeM: r.baro_altitude_m != null ? Number(r.baro_altitude_m) : null,
+  velocityMs: r.velocity_ms != null ? Number(r.velocity_ms) : null,
+  headingDeg: r.heading_deg != null ? Number(r.heading_deg) : null,
+  onGround: Boolean(r.on_ground),
+  lastContact: r.last_contact as string,
+})
+
+// Serverio pusėje kaupiama OpenSky talpykla (žr. supabase/functions/ingest-aviation). Naudojama
+// TIK live režimu — demo režimu (Supabase nesukonfigūruotas) Aviacijos ekranas pats krenta atgal
+// prie tiesioginio OpenSky kvietimo iš naršyklės (žr. src/lib/openSky.ts).
+export const getLiveAircraftCache = () =>
+  dataMode === 'demo' ? Promise.resolve([]) : fetchTable('live_aircraft_cache', mapLiveAircraft, 'fetched_at')
