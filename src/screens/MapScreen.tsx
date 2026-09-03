@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import L from 'leaflet'
 import { MapContainer, TileLayer, Marker, Popup, CircleMarker } from 'react-leaflet'
 import { useAppData } from '@/lib/AppDataContext'
 import { ScreenHeader } from '@/components/ScreenHeader'
@@ -22,28 +23,69 @@ const AIRCRAFT_COLOR: Record<string, string> = {
   INFO: '#3d5266',
 }
 
-function useMapAircraft(): LiveFlight[] {
+function aircraftIcon(heading: number | null, color: string, size: number): L.DivIcon {
+  const deg = heading ?? 0
+  return L.divIcon({
+    html: `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" style="display:block;filter:drop-shadow(0 0 2px rgba(0,0,0,0.8))">
+      <g transform="rotate(${deg} 12 12)">
+        <path fill="${color}" stroke="#000" stroke-width="0.7" stroke-linejoin="round"
+          d="M12 3 L8.5 14 L12 11.5 L15.5 14 Z"/>
+        <path fill="${color}" stroke="#000" stroke-width="0.7" stroke-linejoin="round"
+          d="M10.5 13.5 L10 20 L12 18 L14 20 L13.5 13.5 Z"/>
+      </g>
+    </svg>`,
+    className: '',
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+    popupAnchor: [0, -(size / 2 + 4)],
+  })
+}
+
+interface AircraftState {
+  aircraft: LiveFlight[]
+  lastUpdatedAt: Date | null
+  isStale: boolean
+}
+
+function useMapAircraft(): AircraftState {
   const mode = getDataMode()
-  const [aircraft, setAircraft] = useState<LiveFlight[]>([])
+  const [state, setState] = useState<AircraftState>({ aircraft: [], lastUpdatedAt: null, isStale: false })
 
   useEffect(() => {
     async function load() {
+      let data: LiveFlight[] = []
       if (mode === 'live') {
-        const data = await getLiveAircraftCache()
-        if (data.length > 0) { setAircraft(data); return }
+        data = await getLiveAircraftCache()
       }
-      try {
-        const data = await fetchLiveFlights()
-        setAircraft(data)
-      } catch {}
+      if (data.length === 0) {
+        try { data = await fetchLiveFlights() } catch {}
+      }
+      if (data.length > 0) {
+        setState({ aircraft: data, lastUpdatedAt: new Date(), isStale: false })
+      }
     }
+
     load()
     const ms = mode === 'live' ? 30_000 : 90_000
-    const id = setInterval(load, ms)
-    return () => clearInterval(id)
+    const interval = setInterval(load, ms)
+
+    // Mark stale if not updated in 15 min
+    const staleCheck = setInterval(() => {
+      setState((s) => {
+        if (s.lastUpdatedAt && Date.now() - s.lastUpdatedAt.getTime() > 15 * 60 * 1000) {
+          return { ...s, isStale: true }
+        }
+        return s
+      })
+    }, 60_000)
+
+    return () => {
+      clearInterval(interval)
+      clearInterval(staleCheck)
+    }
   }, [mode])
 
-  return aircraft
+  return state
 }
 
 export default function MapScreen() {
@@ -51,7 +93,7 @@ export default function MapScreen() {
   const mode = getDataMode()
   const [windowLabel, setWindowLabel] = useState<TimeWindow['label']>('72h')
   const hours = TIME_WINDOWS.find((w) => w.label === windowLabel)!.hours
-  const aircraft = useMapAircraft()
+  const { aircraft, lastUpdatedAt, isStale } = useMapAircraft()
   const [showCivilian, setShowCivilian] = useState(false)
 
   const eventsByLocation = useMemo(() => {
@@ -68,28 +110,30 @@ export default function MapScreen() {
     return map
   }, [data.events, hours])
 
-  const visibleAircraft = useMemo(
-    () =>
-      aircraft.filter((f) => {
-        if (f.lat == null || f.lng == null) return false
-        if (!showCivilian) return assessThreat(f).isMilitary
-        return true
-      }),
-    [aircraft, showCivilian],
-  )
+  const { militaryAircraft, civilianAircraft } = useMemo(() => {
+    const mil: LiveFlight[] = []
+    const civ: LiveFlight[] = []
+    for (const f of aircraft) {
+      if (f.lat == null || f.lng == null) continue
+      assessThreat(f).isMilitary ? mil.push(f) : civ.push(f)
+    }
+    return { militaryAircraft: mil, civilianAircraft: civ }
+  }, [aircraft])
 
-  const militaryCount = useMemo(() => aircraft.filter((f) => assessThreat(f).isMilitary).length, [aircraft])
+  const adsb_age = lastUpdatedAt
+    ? Math.round((Date.now() - lastUpdatedAt.getTime()) / 1000)
+    : null
 
   return (
     <div className="flex h-[calc(100vh-9rem)] flex-col md:h-[calc(100vh-6rem)]">
       <ScreenHeader
         title="Žemėlapis"
-        subtitle="Stebimi objektai ir live ADS-B orlaiviai"
+        subtitle="Stebimi objektai · ADS-B pažymėti kariniai orlaiviai"
         action={mode === 'demo' ? <DemoBadge /> : undefined}
       />
 
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2">
           <TimeFilter value={windowLabel} onChange={setWindowLabel} />
           <button
             onClick={() => setShowCivilian((v) => !v)}
@@ -99,7 +143,9 @@ export default function MapScreen() {
                 : 'border-base-700 bg-base-900 text-base-400 hover:border-base-500'
             }`}
           >
-            {showCivilian ? `Visi orlaiviai (${aircraft.length})` : `Kariniai (${militaryCount})`}
+            {showCivilian
+              ? `Visi ADS-B (${aircraft.length})`
+              : `ADS-B pažymėti kariniai (${militaryAircraft.length})`}
           </button>
         </div>
         <Legend />
@@ -108,7 +154,7 @@ export default function MapScreen() {
       <div className="relative flex-1 overflow-hidden rounded-2xl border border-base-700">
         <MapContainer center={LT_BY_CENTER} zoom={7} scrollWheelZoom className="h-full w-full">
           <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> autoriai'
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
 
@@ -161,40 +207,74 @@ export default function MapScreen() {
             )
           })}
 
-          {visibleAircraft.map((f) => {
+          {/* Kariniai orlaiviai — kryptinis simbolis */}
+          {militaryAircraft.map((f) => {
             const a = assessThreat(f)
-            const color = AIRCRAFT_COLOR[a.level] ?? AIRCRAFT_COLOR.INFO
+            const color = AIRCRAFT_COLOR[a.level] ?? AIRCRAFT_COLOR.ISPEJIMAS
+            const size = a.level === 'PAVOJUS' ? 22 : 18
             return (
+              <Marker key={f.icao24} position={[f.lat!, f.lng!]} icon={aircraftIcon(f.headingDeg, color, size)}>
+                <Popup>
+                  <p className="text-sm font-semibold">{f.callsign || f.icao24}</p>
+                  <p className="text-xs font-medium" style={{ color }}>
+                    {a.badgeLabel} · {a.classLabel}
+                  </p>
+                  <p className="text-xs text-base-400">{f.originCountry}</p>
+                  {f.typeDesc && <p className="text-xs text-base-400">{f.typeDesc}</p>}
+                  {a.reasons.length > 0 && (
+                    <p className="mt-1 text-[11px] text-base-500">{a.reasons.join(' · ')}</p>
+                  )}
+                  <div className="mt-1 text-[11px] text-base-500">
+                    {f.baroAltitudeM != null && <span>↑ {Math.round(f.baroAltitudeM)} m · </span>}
+                    {f.velocityMs != null && <span>{Math.round(f.velocityMs * 3.6)} km/h · </span>}
+                    {f.headingDeg != null && <span>{Math.round(f.headingDeg)}°</span>}
+                  </div>
+                </Popup>
+              </Marker>
+            )
+          })}
+
+          {/* Civiliniai orlaiviai — maži taškai (tik jei įjungta) */}
+          {showCivilian &&
+            civilianAircraft.map((f) => (
               <CircleMarker
                 key={f.icao24}
                 center={[f.lat!, f.lng!]}
-                radius={a.isMilitary ? 8 : 4}
-                pathOptions={{
-                  color,
-                  fillColor: color,
-                  fillOpacity: a.isMilitary ? 0.75 : 0.3,
-                  weight: a.isMilitary ? 1.5 : 0.5,
-                }}
+                radius={3}
+                pathOptions={{ color: AIRCRAFT_COLOR.INFO, fillColor: AIRCRAFT_COLOR.INFO, fillOpacity: 0.4, weight: 0.5 }}
               >
                 <Popup>
-                  <p className="text-sm font-semibold">{f.callsign || f.icao24}</p>
-                  {a.isMilitary && (
-                    <p className="text-xs font-medium" style={{ color }}>
-                      {a.level === 'ISPEJIMAS' ? 'ĮSPĖJIMAS' : a.level} · {a.classLabel}
-                    </p>
-                  )}
+                  <p className="text-sm">{f.callsign || f.icao24}</p>
                   <p className="text-xs text-base-400">{f.originCountry}</p>
-                  {f.typeDesc && <p className="text-xs text-base-400">{f.typeDesc}</p>}
-                  <div className="mt-1 text-[11px] text-base-500">
-                    {f.baroAltitudeM != null && <span>Aukštis: {Math.round(f.baroAltitudeM)} m · </span>}
-                    {f.velocityMs != null && <span>Greitis: {Math.round(f.velocityMs * 3.6)} km/h · </span>}
-                    {f.headingDeg != null && <span>Kryptis: {Math.round(f.headingDeg)}°</span>}
-                  </div>
+                  {f.baroAltitudeM != null && <p className="text-[11px] text-base-500">↑ {Math.round(f.baroAltitudeM)} m</p>}
                 </Popup>
               </CircleMarker>
-            )
-          })}
+            ))}
         </MapContainer>
+
+        {/* ADS-B šviežumo žyma */}
+        <div className="pointer-events-none absolute bottom-2 left-2 z-[1000]">
+          <span
+            className={`inline-flex items-center gap-1.5 rounded-lg border px-2 py-1 text-[11px] backdrop-blur-sm ${
+              isStale
+                ? 'border-risk-yellow/40 bg-risk-yellowBg/80 text-risk-yellow'
+                : lastUpdatedAt
+                  ? 'border-risk-green/30 bg-risk-greenBg/80 text-risk-green'
+                  : 'border-base-700 bg-base-900/80 text-base-500'
+            }`}
+          >
+            <span
+              className={`h-1.5 w-1.5 rounded-full ${
+                isStale ? 'bg-risk-yellow' : lastUpdatedAt ? 'bg-risk-green' : 'bg-base-600'
+              }`}
+            />
+            {isStale
+              ? 'ADS-B: PASENĘ (>15 min)'
+              : adsb_age != null
+                ? `ADS-B: prieš ${adsb_age < 60 ? `${adsb_age}s` : `${Math.round(adsb_age / 60)} min`}`
+                : 'ADS-B: kraunama...'}
+          </span>
+        </div>
       </div>
     </div>
   )
@@ -202,18 +282,25 @@ export default function MapScreen() {
 
 function Legend() {
   return (
-    <div className="flex flex-wrap items-center gap-3 text-[11px] text-base-500">
-      <LegendDot color="#334152" label="Nėra pokyčių" />
-      <LegendDot color="#d1a220" label="Signalas / karinis" />
-      <LegendDot color="#c9483f" label="Pavojus" />
+    <div className="hidden flex-wrap items-center gap-3 text-[11px] text-base-500 md:flex">
+      <LegendItem color="#c9483f" shape="arrow" label="Pavojus (RU/BY tipas)" />
+      <LegendItem color="#d1a220" shape="arrow" label="Stebimas karinis" />
+      <LegendItem color="#d1a220" label="NATO / sąjungininkai" />
+      <LegendItem color="#334152" label="Nėra pokyčių" />
     </div>
   )
 }
 
-function LegendDot({ color, label }: { color: string; label: string }) {
+function LegendItem({ color, label, shape }: { color: string; label: string; shape?: 'arrow' | 'dot' }) {
   return (
     <span className="flex items-center gap-1.5">
-      <span className="h-2.5 w-2.5 rounded-full border" style={{ borderColor: color, background: '#131a22' }} />
+      {shape === 'arrow' ? (
+        <svg width="10" height="12" viewBox="0 0 24 24">
+          <path fill={color} d="M12 3 L8.5 14 L12 11.5 L15.5 14 Z" />
+        </svg>
+      ) : (
+        <span className="h-2.5 w-2.5 rounded-full border" style={{ borderColor: color, background: '#131a22' }} />
+      )}
       {label}
     </span>
   )

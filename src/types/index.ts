@@ -278,3 +278,13 @@ export const TIME_WINDOWS: TimeWindow[] = [
   { label: '7d', hours: 24 * 7 },
   { label: '30d', hours: 24 * 30 },
 ]
+
+// LT72 oficialūs perspėjimai (https://lt72.lt/kategorija/pranesimai/)
+export interface Lt72Alert {
+  id: string
+  title: string
+  summary: string | null
+  publishedAt: string | null
+  url: string
+  fetchedAt: string
+}

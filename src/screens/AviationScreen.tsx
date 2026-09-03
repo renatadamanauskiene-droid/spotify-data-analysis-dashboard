@@ -261,7 +261,7 @@ export default function AviationScreen() {
                         <p className="text-sm font-medium text-base-100">{f.callsign || 'Be šaukinio'}</p>
                         {a.isMilitary && (
                           <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${style.badge}`}>
-                            {a.level === 'INFO' ? 'KARINIS' : style.label}
+                            {a.badgeLabel}
                           </span>
                         )}
                         {a.isMilitary && <span className="text-[11px] font-medium text-base-300">{a.classLabel}</span>}

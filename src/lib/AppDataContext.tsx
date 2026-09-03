@@ -14,6 +14,7 @@ import type {
   NewsItem,
   AlertItem,
   DailySnapshot,
+  Lt72Alert,
 } from '@/types'
 import {
   getSources,
@@ -30,6 +31,7 @@ import {
   getNews,
   getAlerts,
   getSnapshots,
+  getLt72Alerts,
   getDataMode,
 } from './dataSource'
 
@@ -53,6 +55,7 @@ interface AppData {
   news: NewsItem[]
   alerts: AlertItem[]
   snapshots: DailySnapshot[]
+  lt72: Lt72Alert[]
 }
 
 const EMPTY: AppData = {
@@ -75,6 +78,7 @@ const EMPTY: AppData = {
   news: [],
   alerts: [],
   snapshots: [],
+  lt72: [],
 }
 
 const AppDataCtx = createContext<AppData>(EMPTY)
@@ -85,7 +89,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let cancelled = false
     async function load() {
-      const [sources, locations, events, indicators, satellite, aviation, railway, missiles, gnss, notams, exercises, news, alerts, snapshots] =
+      const [sources, locations, events, indicators, satellite, aviation, railway, missiles, gnss, notams, exercises, news, alerts, snapshots, lt72] =
         await Promise.all([
           getSources(),
           getLocations(),
@@ -101,6 +105,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
           getNews(),
           getAlerts(),
           getSnapshots(),
+          getLt72Alerts(),
         ])
       if (cancelled) return
       setData({
@@ -123,6 +128,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         news,
         alerts,
         snapshots,
+        lt72,
       })
 
       try {

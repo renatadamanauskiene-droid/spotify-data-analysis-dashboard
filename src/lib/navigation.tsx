@@ -24,14 +24,14 @@ export interface NavItem {
 
 export const primaryNav: NavItem[] = [
   { path: '/', label: 'Dabar', icon: HomeIcon },
-  { path: '/zemelapis', label: 'Žemėlapis', shortLabel: 'Žemėl.', icon: MapIcon },
+  { path: '/zemelapis', label: 'Žemėlapis', icon: MapIcon },
+  { path: '/signalai', label: 'Signalai', icon: BellIcon },
   { path: '/aviacija', label: 'Aviacija', icon: PlaneIcon },
-  { path: '/suvalkai', label: 'Suvalkų koridorius', shortLabel: 'Suvalkai', icon: CorridorIcon },
-  { path: '/gnss', label: 'GPS / GNSS', shortLabel: 'GPS/GNSS', icon: RadarIcon },
 ]
 
 export const moreNav: NavItem[] = [
-  { path: '/signalai', label: 'Signalai', icon: BellIcon },
+  { path: '/suvalkai', label: 'Suvalkų koridorius', icon: CorridorIcon },
+  { path: '/gnss', label: 'GPS / GNSS ir el. kova', icon: RadarIcon },
   { path: '/srautas', label: 'Srautas', icon: RssIcon },
   { path: '/palydovai', label: 'Palydovų pokyčiai', icon: SatelliteIcon },
   { path: '/gelezinkeliai', label: 'Geležinkeliai', icon: TrainIcon },

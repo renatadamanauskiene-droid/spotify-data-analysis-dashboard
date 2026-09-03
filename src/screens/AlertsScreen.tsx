@@ -26,18 +26,60 @@ export default function AlertsScreen() {
   const data = useAppData()
   const mode = getDataMode()
   const alerts = [...data.alerts].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+  const lt72 = [...data.lt72].sort((a, b) => {
+    if (!a.publishedAt) return 1
+    if (!b.publishedAt) return -1
+    return new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
+  })
 
   return (
     <div>
-      <ScreenHeader title="Signalai" subtitle="Alert Center ir pranešimų nustatymai" action={mode === 'demo' ? <DemoBadge /> : undefined} />
+      <ScreenHeader title="Signalai" subtitle="Oficialūs perspėjimai ir stebėsenos signalai" action={mode === 'demo' ? <DemoBadge /> : undefined} />
+
+      {/* LT72 oficialūs perspėjimai — aukščiausias prioritetas */}
+      <div className="mb-6">
+        <div className="mb-2 flex items-center gap-2">
+          <h2 className="text-sm font-semibold text-base-300">Oficialūs perspėjimai</h2>
+          <span className="rounded-full border border-risk-red/40 bg-risk-redBg px-2 py-0.5 text-[10px] font-semibold text-risk-red">OFICIALUS LT72</span>
+        </div>
+        {lt72.length === 0 ? (
+          <EmptyState
+            title="LT72 perspėjimų nėra"
+            hint="Duomenys gaunami iš lt72.lt kas 5 min. Jei lentelė neinicializuota — paleiskite ingest-lt72 funkciją."
+          />
+        ) : (
+          <ul className="space-y-2">
+            {lt72.slice(0, 10).map((a) => (
+              <li key={a.id} className="rounded-xl border border-risk-red/30 bg-risk-redBg p-3.5">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangleIcon className="mt-0.5 h-4 w-4 shrink-0 text-risk-red" />
+                    <a href={a.url} target="_blank" rel="noopener noreferrer" className="text-sm font-semibold text-risk-red hover:underline">
+                      {a.title}
+                    </a>
+                  </div>
+                  <span className="shrink-0 whitespace-nowrap rounded-full border border-risk-red/30 px-2 py-0.5 text-[10px] font-semibold text-risk-red">
+                    LT72
+                  </span>
+                </div>
+                {a.summary && <p className="mt-1.5 text-xs leading-relaxed text-base-300">{a.summary}</p>}
+                <p className="mt-2 flex items-center gap-1 text-[11px] text-base-500">
+                  <ClockIcon className="h-3.5 w-3.5" />
+                  {a.publishedAt ? formatDateTimeLt(a.publishedAt) : 'Data nežinoma'}
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
 
       <NotificationSettings />
 
       <h2 className="mb-2 mt-6 flex items-center gap-2 text-sm font-semibold text-base-300">
-        <BellIcon className="h-4 w-4" /> Įspėjimų istorija
+        <BellIcon className="h-4 w-4" /> Stebėsenos signalai
       </h2>
       {alerts.length === 0 ? (
-        <EmptyState title="Nėra reikšmingų pokyčių" hint="Šiuo metu aktyvių įspėjimų nėra." />
+        <EmptyState title="Nėra reikšmingų pokyčių" hint="Šiuo metu aktyvių signalų nėra." />
       ) : (
         <ul className="space-y-2">
           {alerts.map((a) => (
