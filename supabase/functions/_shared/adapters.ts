@@ -123,10 +123,12 @@ export const rssAdapters: SourceAdapter[] = [
   { sourceId: 'nato-hq', kind: 'pending', feedUrl: null, name: 'NATO oficialūs pranešimai', type: 'oficialus_nato', reliability: 'A', notes: 'NATO RSS URL nerasta (404). Galima alternatyva: scraping arba oficialios API.' },
   // ISW blokuoja serverio IP (HTTP 403) — laukia integracijos.
   { sourceId: 'isw-ctp', kind: 'pending', feedUrl: null, name: 'ISW / Critical Threats', type: 'analitinis_osint', reliability: 'A', notes: 'understandingwar.org blokuoja serverio IP (HTTP 403). Laukia alternatyvaus priėjimo.' },
-  // LRT RSS URL nerasta (404). Laukia tikslaus RSS adreso.
-  { sourceId: 'lrt', kind: 'pending', feedUrl: null, name: 'LRT naujienos', type: 'ziniasklaida', reliability: 'B', notes: 'LRT RSS URL grąžina 404. Reikia tikslaus RSS adreso.' },
+  // LRT: veikiantis RSS URL lrt.lt/?rss (patikrintas 2026-09-03).
+  { sourceId: 'lrt', kind: 'rss', feedUrl: 'https://www.lrt.lt/?rss', name: 'LRT naujienos', type: 'ziniasklaida', reliability: 'B', notes: 'LRT lietuviškos naujienos (filtruojama pagal temą).' },
   // Reuters feeds.reuters.com DNS nebeegzistuoja — laukia integracijos.
   { sourceId: 'reuters', kind: 'pending', feedUrl: null, name: 'Reuters', type: 'ziniasklaida', reliability: 'B', notes: 'feeds.reuters.com DNS neišsprendžiamas iš serverio — Reuters RSS nutraukė viešą prieigą.' },
+  // Naujas šaltinis: Baltic Defence — Baltijos gynybos naujienos (patikrintas 2026-09-03).
+  { sourceId: 'baltic-defence', kind: 'rss', feedUrl: 'https://balticdefence.org/feed/', name: 'Baltic Defence', type: 'analitinis_osint', reliability: 'B', notes: 'Baltijos gynybos ir karinio saugumo naujienos (LV, LT, EE, PL).' },
 ]
 
 // Ateities integracijoms — atskiri Edge Functions pagal tą patį modelį:
