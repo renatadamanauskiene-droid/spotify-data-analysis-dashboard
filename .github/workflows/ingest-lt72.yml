@@ -1,8 +1,8 @@
 name: Ingest LT72 Alerts
 
 # Tikrina lt72.lt kas 5 min ir išsaugo oficialius perspėjimus į Supabase.
-# Veikia iš GitHub Actions (Azure IP), o ne iš Supabase Edge Functions (Deno Deploy IP —
-# blokuojamas lt72.lt WAF). Nereikalingi papildomi secrets — naudojamas viešas anon raktas.
+# Naudoja RSS feed (ne REST API) — WAF leidžia RSS, blokuoja tik REST API.
+# Veikia iš GitHub Actions (Azure IP). Anon raktas saugus (apsauga per RLS).
 
 on:
   schedule:
@@ -19,7 +19,7 @@ jobs:
     timeout-minutes: 3
 
     steps:
-      - name: Fetch lt72.lt ir įterpti į Supabase
+      - name: Fetch lt72.lt RSS ir įterpti į Supabase
         env:
           SUPABASE_URL: https://wmhvjwuzxgwlqxgkksfa.supabase.co
           # anon/publishable raktas — skirtas būti viešas (apsauga per RLS)
@@ -28,63 +28,97 @@ jobs:
           python3 << 'PYEOF'
           import urllib.request, json, re, os, sys
           from datetime import datetime, timezone
+          from xml.etree import ElementTree as ET
 
-          WP_API = (
-            "https://lt72.lt/wp-json/wp/v2/posts"
-            "?categories=49,72,81"
-            "&per_page=20"
-            "&orderby=date"
-            "&order=desc"
-            "&_fields=id,slug,title,excerpt,date,link"
-          )
+          # lt72.lt RSS feed — veikia (WAF leidžia), skirtingai nuo REST API (blokuoja)
+          RSS_URL = "https://lt72.lt/feed/"
+          NS = {
+            "content": "http://purl.org/rss/1.0/modules/content/",
+            "dc":      "http://purl.org/dc/elements/1.1/",
+          }
 
           def strip_html(s):
             if not s:
               return None
             s = re.sub(r'<[^>]+>', ' ', s)
-            s = s.replace('&hellip;', '…').replace('&amp;', '&').replace('&lt;', '<') \
-                  .replace('&gt;', '>').replace('&quot;', '"').replace('&nbsp;', ' ') \
-                  .replace('&#8220;', '"').replace('&#8221;', '"').replace('\xa0', ' ')
-            return re.sub(r'\s{2,}', ' ', s).strip()
+            s = (s.replace('&hellip;', '…').replace('&amp;', '&').replace('&lt;', '<')
+                  .replace('&gt;', '>').replace('&quot;', '"').replace('&nbsp;', ' ')
+                  .replace('&#8220;', '"').replace('&#8221;', '"').replace('\xa0', ' '))
+            return re.sub(r'\s{2,}', ' ', s).strip() or None
 
-          # 1. Gauti duomenis iš lt72.lt
-          req = urllib.request.Request(WP_API, headers={
+          def slug_from_url(url):
+            # https://lt72.lt/oro-pavojus-2026-06-13/ → oro-pavojus-2026-06-13
+            parts = [p for p in url.rstrip('/').split('/') if p]
+            return parts[-1] if parts else url
+
+          # 1. Gauti RSS
+          req = urllib.request.Request(RSS_URL, headers={
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
-            "Accept": "application/json",
+            "Accept": "application/rss+xml, application/xml, text/xml, */*",
             "Accept-Language": "lt-LT,lt;q=0.9,en;q=0.8",
           })
           try:
             with urllib.request.urlopen(req, timeout=15) as resp:
-              posts = json.loads(resp.read())
+              xml_bytes = resp.read()
           except Exception as e:
-            print(f"KLAIDA gaunant lt72.lt: {e}", file=sys.stderr)
+            print(f"KLAIDA gaunant lt72.lt RSS: {e}", file=sys.stderr)
             sys.exit(1)
 
-          if not posts:
-            print("lt72.lt negrąžino įrašų.")
-            sys.exit(0)
+          # 2. Parsinti RSS XML
+          try:
+            root = ET.fromstring(xml_bytes)
+          except ET.ParseError as e:
+            print(f"RSS XML klaida: {e}", file=sys.stderr)
+            sys.exit(1)
 
-          # 2. Paruošti įrašus
+          channel = root.find("channel")
+          if channel is None:
+            print("RSS: nerasta <channel>", file=sys.stderr)
+            sys.exit(1)
+
           now = datetime.now(timezone.utc).isoformat()
           records = []
-          for p in posts:
-            slug = p.get("slug") or str(p["id"])
-            title = strip_html(p["title"]["rendered"])
-            summary = strip_html(p.get("excerpt", {}).get("rendered", ""))
+
+          for item in channel.findall("item"):
+            link = (item.findtext("link") or "").strip()
+            if not link:
+              continue
+            slug = slug_from_url(link)
+
+            title_raw = item.findtext("title") or ""
+            title = strip_html(title_raw) or title_raw.strip()
+
+            desc_raw = item.findtext("description") or ""
+            summary = strip_html(desc_raw)
             if summary:
-              summary = summary[:500]
+              # Remove WordPress "The post X appeared first on..." trailer
+              summary = re.sub(r'\s*The post .+? appeared first on .+?\.?\s*$', '', summary).strip()
+              summary = summary[:500] or None
+
+            pub_raw = item.findtext("pubDate") or ""
             try:
-              pub = datetime.fromisoformat(p["date"]).replace(tzinfo=timezone.utc).isoformat()
+              from email.utils import parsedate_to_datetime
+              pub = parsedate_to_datetime(pub_raw).astimezone(timezone.utc).isoformat()
             except Exception:
               pub = now
+
+            if not title or not link:
+              continue
+
             records.append({
               "id": slug,
               "title": title,
-              "summary": summary or None,
+              "summary": summary,
               "published_at": pub,
-              "url": p["link"],
+              "url": link,
               "fetched_at": now,
             })
+
+          if not records:
+            print("RSS: nerasta įrašų.")
+            sys.exit(0)
+
+          print(f"Gauta {len(records)} įrašų iš lt72.lt RSS")
 
           # 3. Upsert į Supabase per REST API
           url = os.environ["SUPABASE_URL"]
