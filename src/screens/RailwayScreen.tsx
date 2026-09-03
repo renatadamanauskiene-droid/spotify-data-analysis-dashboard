@@ -4,9 +4,15 @@ import { ConfidenceBadge } from '@/components/ConfidenceBadge'
 import { SourceList } from '@/components/SourceList'
 import { DemoBadge } from '@/components/DemoBadge'
 import { EmptyState } from '@/components/EmptyState'
+import { RelatedFeedSection } from '@/components/RelatedFeedSection'
 import { formatDateTimeLt } from '@/lib/format'
 import { getDataMode } from '@/lib/dataSource'
 import type { RailSignalType } from '@/types'
+
+const RAILWAY_KEYWORDS = [
+  'geležink', 'gelezink', 'railway', 'railcar', 'ešelon', 'echelon',
+  'convoy', 'perveži', 'krovini', 'traukin', 'logistik', 'tiekimo',
+]
 
 const SIGNAL_LABEL: Record<RailSignalType, string> = {
   normalus_pratybinis: 'Normalus pratybinis transportas',
@@ -30,7 +36,10 @@ export default function RailwayScreen() {
       <ScreenHeader title="Geležinkeliai" subtitle="Kariniai ešelonai ir technikos kryptis" action={mode === 'demo' ? <DemoBadge /> : undefined} />
 
       {items.length === 0 ? (
-        <EmptyState title="Nepakanka patikimų duomenų" />
+        <>
+          <EmptyState title="Struktūrizuotų stebėjimų nėra" hint="Geležinkelių krovinio duomenys įvedami rankiniu būdu. Susiję pranešimai iš naujienų srauto:" />
+          <RelatedFeedSection keywords={RAILWAY_KEYWORDS} />
+        </>
       ) : (
         <ul className="space-y-3">
           {items.map((r) => {

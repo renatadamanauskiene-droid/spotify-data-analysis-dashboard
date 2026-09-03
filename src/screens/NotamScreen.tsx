@@ -4,9 +4,22 @@ import { ConfidenceBadge } from '@/components/ConfidenceBadge'
 import { SourceList } from '@/components/SourceList'
 import { DemoBadge } from '@/components/DemoBadge'
 import { EmptyState } from '@/components/EmptyState'
+import { RelatedFeedSection } from '@/components/RelatedFeedSection'
 import { AlertTriangleIcon } from '@/components/icons'
 import { formatDateTimeLt } from '@/lib/format'
 import { getDataMode } from '@/lib/dataSource'
+
+const NOTAM_KEYWORDS = [
+  'notam', 'oro erdv', 'airspace', 'pratybos', 'pratyb', 'exercise', 'maneuver',
+  'skrydž', 'flight restriction', 'tfr', 'no-fly', 'suvalk', 'suwalki',
+  'oro policij', 'air policing', 'intercept', 'scramble', 'dron', 'balloon',
+]
+
+const EXERCISE_KEYWORDS = [
+  'pratybos', 'pratyb', 'exercise', 'maneuver', 'training', 'drill',
+  'zapad', 'allied', 'nato exercise', 'iron wolf', 'griffin', 'saber',
+  'karinis', 'military exercise', 'joint', 'combined arms',
+]
 
 export default function NotamScreen() {
   const data = useAppData()
@@ -20,7 +33,10 @@ export default function NotamScreen() {
 
       <h2 className="mb-2 text-sm font-semibold text-base-300">Aktyvūs / nauji apribojimai</h2>
       {notams.length === 0 ? (
-        <EmptyState title="Nepakanka patikimų duomenų" />
+        <>
+          <EmptyState title="Struktūrizuotų NOTAM įrašų nėra" hint="NOTAM duomenys įvedami rankiniu būdu. Susiję pranešimai:" />
+          <RelatedFeedSection keywords={NOTAM_KEYWORDS} />
+        </>
       ) : (
         <ul className="mb-6 space-y-2">
           {notams.map((n) => (
@@ -47,7 +63,10 @@ export default function NotamScreen() {
 
       <h2 className="mb-2 text-sm font-semibold text-base-300">Pratybų kalendorius</h2>
       {exercises.length === 0 ? (
-        <EmptyState title="Nepakanka patikimų duomenų" />
+        <>
+          <EmptyState title="Struktūrizuotų pratybų įrašų nėra" hint="Pratybų kalendorius pildomas rankiniu būdu. Susiję pranešimai:" />
+          <RelatedFeedSection keywords={EXERCISE_KEYWORDS} />
+        </>
       ) : (
         <ul className="space-y-2">
           {exercises.map((ex) => (

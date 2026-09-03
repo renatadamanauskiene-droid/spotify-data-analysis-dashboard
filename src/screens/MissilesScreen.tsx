@@ -4,9 +4,16 @@ import { ConfidenceBadge } from '@/components/ConfidenceBadge'
 import { SourceList } from '@/components/SourceList'
 import { DemoBadge } from '@/components/DemoBadge'
 import { EmptyState } from '@/components/EmptyState'
+import { RelatedFeedSection } from '@/components/RelatedFeedSection'
 import { formatDateTimeLt } from '@/lib/format'
 import { getDataMode } from '@/lib/dataSource'
 import type { MissileChangeType } from '@/types'
+
+const MISSILE_KEYWORDS = [
+  'raket', 'missile', 'iskander', 's-300', 's-400', 'kinzhal', 'kalibr',
+  'oro gynyb', 'air defense', 'antiaircraft', 'buk', 'tor ', 'pantsir',
+  'branduolin', 'nuclear', 'warhead', 'smūg', 'strike', 'launch',
+]
 
 const CHANGE_LABEL: Record<MissileChangeType, string> = {
   nauja_dislokacija: 'Nauja dislokacija',
@@ -30,7 +37,10 @@ export default function MissilesScreen() {
       <p className="mb-4 text-xs text-base-500">Žymima tik tada, kai yra bent vienas patikimas viešas šaltinis.</p>
 
       {items.length === 0 ? (
-        <EmptyState title="Nepakanka patikimų duomenų" />
+        <>
+          <EmptyState title="Struktūrizuotų stebėjimų nėra" hint="Raketų sistemų pokyčiai fiksuojami rankiniu būdu iš palydovinių/OSINT šaltinių. Susiję pranešimai:" />
+          <RelatedFeedSection keywords={MISSILE_KEYWORDS} />
+        </>
       ) : (
         <ul className="space-y-3">
           {items.map((m) => {
