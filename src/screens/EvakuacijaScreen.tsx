@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, type RefObject } from 'react'
+import { useState, useEffect, useMemo, useRef, useCallback, type RefObject } from 'react'
 import { MapContainer, TileLayer, CircleMarker, Popup, Tooltip, useMap } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import { useAppData } from '@/lib/AppDataContext'
@@ -6,6 +6,172 @@ import { ScreenHeader } from '@/components/ScreenHeader'
 import { AlertTriangleIcon, ClockIcon } from '@/components/icons'
 import { formatDateTimeLt } from '@/lib/format'
 import type { Lt72Alert } from '@/types'
+
+// ---------------------------------------------------------------------------
+// Evakuacijos profilis
+// ---------------------------------------------------------------------------
+
+const PROFILIS_KEY = 'evakuacija_profilis'
+
+interface Profilis {
+  transport: 'automobilis' | 'pesciomis'
+  suaugę: number
+  vaikai: number
+  neigalieji: number
+  kryptis: 'auto' | 'vakarai' | 'siaure' | 'pietai'
+}
+
+const DEFAULT_PROFILIS: Profilis = {
+  transport: 'automobilis',
+  suaugę: 1,
+  vaikai: 0,
+  neigalieji: 0,
+  kryptis: 'auto',
+}
+
+function loadProfilis(): Profilis {
+  try {
+    const raw = localStorage.getItem(PROFILIS_KEY)
+    if (raw) return { ...DEFAULT_PROFILIS, ...JSON.parse(raw) }
+  } catch {}
+  return { ...DEFAULT_PROFILIS }
+}
+
+function saveProfilis(p: Profilis) {
+  try { localStorage.setItem(PROFILIS_KEY, JSON.stringify(p)) } catch {}
+}
+
+function profilisChip(p: Profilis) {
+  const parts = [p.transport === 'automobilis' ? '🚗 Automobilis' : '🚶 Pėsčiomis']
+  const persons = p.suaugę + p.vaikai + p.neigalieji
+  if (persons > 0) parts.push(`${persons} asm.`)
+  if (p.kryptis !== 'auto') {
+    const labels: Record<string, string> = { vakarai: '← Vakarai', siaure: '↑ Šiaurė', pietai: '↓ Pietūs' }
+    parts.push(labels[p.kryptis] ?? p.kryptis)
+  }
+  return parts.join(' · ')
+}
+
+interface ProfilisFormProps {
+  profilis: Profilis
+  onChange: (p: Profilis) => void
+}
+
+function ProfilisForm({ profilis, onChange }: ProfilisFormProps) {
+  const set = (patch: Partial<Profilis>) => {
+    const next = { ...profilis, ...patch }
+    onChange(next)
+    saveProfilis(next)
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Transport */}
+      <div>
+        <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-base-500">Transportas</p>
+        <div className="flex gap-2">
+          {(['automobilis', 'pesciomis'] as const).map((t) => (
+            <button
+              key={t}
+              onClick={() => set({ transport: t })}
+              className={`flex-1 rounded-lg border py-2 text-sm font-medium transition ${
+                profilis.transport === t
+                  ? 'border-accent/50 bg-accent/15 text-accent'
+                  : 'border-base-700 bg-base-850 text-base-400 hover:border-base-600'
+              }`}
+            >
+              {t === 'automobilis' ? '🚗 Automobilis' : '🚶 Pėsčiomis'}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Family */}
+      <div>
+        <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-base-500">Šeimos nariai</p>
+        <div className="grid grid-cols-3 gap-2">
+          {(
+            [
+              { key: 'suaugę', label: 'Suaugę' },
+              { key: 'vaikai', label: 'Vaikai' },
+              { key: 'neigalieji', label: 'Neįgalieji' },
+            ] as const
+          ).map(({ key, label }) => (
+            <div key={key} className="flex flex-col items-center gap-1.5">
+              <span className="text-[10px] text-base-500">{label}</span>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => set({ [key]: Math.max(0, profilis[key] - 1) })}
+                  className="flex h-7 w-7 items-center justify-center rounded-lg border border-base-700 bg-base-850 text-base-300 hover:bg-base-800"
+                >
+                  −
+                </button>
+                <span className="w-6 text-center text-sm font-semibold text-base-200">{profilis[key]}</span>
+                <button
+                  onClick={() => set({ [key]: profilis[key] + 1 })}
+                  className="flex h-7 w-7 items-center justify-center rounded-lg border border-base-700 bg-base-850 text-base-300 hover:bg-base-800"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Preferred direction */}
+      <div>
+        <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-base-500">Pageidaujama kryptis</p>
+        <div className="grid grid-cols-2 gap-2">
+          {(
+            [
+              { key: 'auto', label: '🔄 Pagal atstumą' },
+              { key: 'vakarai', label: '← Vakarai (Kaunas/Klaipėda)' },
+              { key: 'siaure', label: '↑ Šiaurė (Panevėžys/Ryga)' },
+              { key: 'pietai', label: '↓ Pietūs (Druskininkai/Lenkija)' },
+            ] as const
+          ).map(({ key, label }) => (
+            <button
+              key={key}
+              onClick={() => set({ kryptis: key })}
+              className={`rounded-lg border py-2 text-xs font-medium transition ${
+                profilis.kryptis === key
+                  ? 'border-accent/50 bg-accent/15 text-accent'
+                  : 'border-base-700 bg-base-850 text-base-400 hover:border-base-600'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function EvakuacijosProfilis({ profilis, onChange }: { profilis: Profilis; onChange: (p: Profilis) => void }) {
+  const [open, setOpen] = useState(false)
+
+  return (
+    <div className="mb-4 rounded-xl border border-base-700 bg-base-850">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between px-4 py-3"
+      >
+        <div className="min-w-0 flex-1 text-left">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-base-500">Evakuacijos profilis</p>
+          <p className="mt-0.5 text-xs text-base-300">{profilisChip(profilis)}</p>
+        </div>
+        <span className="ml-2 shrink-0 text-xs text-base-500">{open ? '▲ Uždaryti' : '▼ Redaguoti'}</span>
+      </button>
+      {open && (
+        <div className="border-t border-base-700 px-4 pb-4 pt-3">
+          <ProfilisForm profilis={profilis} onChange={onChange} />
+        </div>
+      )}
+    </div>
+  )
+}
 
 // ---------------------------------------------------------------------------
 // Types
@@ -484,10 +650,11 @@ interface ScoredRoute extends ExitRoute {
   rank: number
 }
 
-function RouteRow({ r, userPos, rank }: { r: ScoredRoute; userPos: { lat: number; lng: number } | null; rank: number }) {
+function RouteRow({ r, userPos, rank, prefKryptis }: { r: ScoredRoute; userPos: { lat: number; lng: number } | null; rank: number; prefKryptis: string }) {
   const origin = userPos ?? { lat: VILNIUS_LAT, lng: VILNIUS_LNG }
   const isBest = !r.danger && rank === 0
   const isSecond = !r.danger && rank === 1
+  const isPref = prefKryptis !== 'auto' && (KRYPTIS_ROADS[prefKryptis] ?? []).some((k) => r.road.startsWith(k))
 
   return (
     <li className={`rounded-xl border p-3.5 ${r.danger ? 'border-risk-red/30 bg-risk-redBg' : 'border-base-700 bg-base-850'}`}>
@@ -498,6 +665,11 @@ function RouteRow({ r, userPos, rank }: { r: ScoredRoute; userPos: { lat: number
             <span className={`text-sm ${r.danger ? 'text-risk-red/80' : 'text-base-300'}`}>→ {r.direction}</span>
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-1.5">
+            {isPref && (
+              <span className="rounded-full border border-accent/50 bg-accent/15 px-2 py-0.5 text-[10px] font-semibold text-accent">
+                Jūsų kryptis
+              </span>
+            )}
             {isBest && userPos && (
               <span className="rounded-full bg-accent/20 border border-accent/40 px-2 py-0.5 text-[10px] font-semibold text-accent">
                 ⭐ Artimiausias jūsų vietai
@@ -541,30 +713,58 @@ function RouteRow({ r, userPos, rank }: { r: ScoredRoute; userPos: { lat: number
   )
 }
 
-function RoutesTab({ userPos }: { userPos: { lat: number; lng: number } | null }) {
+// Map preferred direction keys to road substrings
+const KRYPTIS_ROADS: Record<string, string[]> = {
+  vakarai: ['A1', 'Vakarinis'],
+  siaure: ['A2', 'A14'],
+  pietai: ['A4', 'A15'],
+}
+
+function RoutesTab({ userPos, profilis }: { userPos: { lat: number; lng: number } | null; profilis: Profilis }) {
   const scored = useMemo<ScoredRoute[]>(() => {
     const ref = userPos ?? { lat: VILNIUS_LAT, lng: VILNIUS_LNG }
     const withDist = EXIT_ROUTES.map((r) => ({
       ...r,
       distanceKm: haversineKm(ref.lat, ref.lng, r.entryLat, r.entryLng),
     }))
-    // Sort: non-danger by entry distance, danger always last
-    const safe = withDist.filter((r) => !r.danger).sort((a, b) => a.distanceKm - b.distanceKm)
+    const safe = withDist.filter((r) => !r.danger)
     const danger = withDist.filter((r) => r.danger)
-    return [...safe, ...danger].map((r, i) => ({ ...r, rank: r.danger ? 999 : i }))
-  }, [userPos])
+
+    // If preferred direction set, put matching routes first, then rest by distance
+    let sorted: typeof safe
+    if (profilis.kryptis !== 'auto') {
+      const preferred = KRYPTIS_ROADS[profilis.kryptis] ?? []
+      const match = safe.filter((r) => preferred.some((k) => r.road.startsWith(k))).sort((a, b) => a.distanceKm - b.distanceKm)
+      const rest = safe.filter((r) => !preferred.some((k) => r.road.startsWith(k))).sort((a, b) => a.distanceKm - b.distanceKm)
+      sorted = [...match, ...rest]
+    } else {
+      sorted = safe.sort((a, b) => a.distanceKm - b.distanceKm)
+    }
+    return [...sorted, ...danger].map((r, i) => ({ ...r, rank: r.danger ? 999 : i }))
+  }, [userPos, profilis.kryptis])
+
+  const kryptisLabel: Record<string, string> = { vakarai: 'Vakarai', siaure: 'Šiaurė', pietai: 'Pietūs' }
 
   return (
     <>
       <p className="mb-3 text-xs text-base-400">
-        {userPos
+        {profilis.kryptis !== 'auto'
+          ? `Profilis: ${kryptisLabel[profilis.kryptis]} kryptis pirmiausia.`
+          : userPos
           ? 'Maršrutai rūšiuojami pagal artumą jūsų dabartinei vietai.'
-          : 'Jūsų vieta nenaudojama. Leiskite prieigą prie vietos — surūšiuosime pagal artumą.'}
-        {' '}Eismo informacija realiuoju laiku — Waze / Google Maps.
+          : 'Jūsų vieta nenaudojama. Leiskite prieigą prie vietos — surūšiuosime pagal artumą.'}{' '}
+        Eismo informacija — Waze / Google Maps.
       </p>
+      {profilis.transport === 'pesciomis' && (
+        <div className="mb-3 rounded-lg border border-risk-yellow/30 bg-risk-yellowBg px-3 py-2.5">
+          <p className="text-xs text-risk-yellow">
+            Pėsčiomis: rekomenduojama ieškoti slėptuvės (Slėptuvės skiltis), o ne išvykimo maršruto.
+          </p>
+        </div>
+      )}
       <ul className="space-y-2">
         {scored.map((r) => (
-          <RouteRow key={r.road} r={r} userPos={userPos} rank={r.rank} />
+          <RouteRow key={r.road} r={r} userPos={userPos} rank={r.rank} prefKryptis={profilis.kryptis} />
         ))}
       </ul>
     </>
@@ -583,7 +783,10 @@ export default function EvakuacijaScreen() {
   const [shelters, setShelters] = useState<Shelter[]>([])
   const [shelterLoading, setShelterLoading] = useState(true)
   const [selectedShelterId, setSelectedShelterId] = useState<string | null>(null)
+  const [profilis, setProfilis] = useState<Profilis>(() => loadProfilis())
   const mapRef = useRef<HTMLDivElement>(null)
+
+  const handleProfilisChange = useCallback((p: Profilis) => setProfilis(p), [])
 
   const lt72 = useMemo(
     () =>
@@ -631,6 +834,9 @@ export default function EvakuacijaScreen() {
 
       <Lt72Banner alerts={lt72} />
 
+      {/* Evakuacijos profilis */}
+      <EvakuacijosProfilis profilis={profilis} onChange={handleProfilisChange} />
+
       {/* Geolocation status */}
       {!userPos && !geoError && (
         <p className="mb-4 rounded-lg border border-base-700 bg-base-850 px-4 py-2.5 text-xs text-base-400">
@@ -673,7 +879,7 @@ export default function EvakuacijaScreen() {
           mapRef={mapRef}
         />
       ) : (
-        <RoutesTab userPos={userPos} />
+        <RoutesTab userPos={userPos} profilis={profilis} />
       )}
 
       {/* Emergency contacts */}

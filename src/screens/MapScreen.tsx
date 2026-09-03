@@ -95,6 +95,7 @@ export default function MapScreen() {
   const hours = TIME_WINDOWS.find((w) => w.label === windowLabel)!.hours
   const { aircraft, lastUpdatedAt, isStale } = useMapAircraft()
   const [showCivilian, setShowCivilian] = useState(false)
+  const [showGnss, setShowGnss] = useState(true)
 
   const eventsByLocation = useMemo(() => {
     const map = new Map<string, EventItem[]>()
@@ -146,6 +147,16 @@ export default function MapScreen() {
             {showCivilian
               ? `Visi ADS-B (${aircraft.length})`
               : `ADS-B pažymėti kariniai (${militaryAircraft.length})`}
+          </button>
+          <button
+            onClick={() => setShowGnss((v) => !v)}
+            className={`rounded-lg border px-2.5 py-1.5 text-[11px] font-medium transition ${
+              showGnss
+                ? 'border-risk-yellow/40 bg-risk-yellowBg text-risk-yellow'
+                : 'border-base-700 bg-base-900 text-base-400 hover:border-base-500'
+            }`}
+          >
+            GNSS trikdžiai ({data.gnss.length})
           </button>
         </div>
         <Legend />
@@ -250,6 +261,30 @@ export default function MapScreen() {
                 </Popup>
               </CircleMarker>
             ))}
+
+          {/* GNSS trikdžių zonos — geltoni ratai */}
+          {showGnss &&
+            data.gnss.map((g) => {
+              const intensityColor = g.intensity === 'aukstas' ? '#c9483f' : g.intensity === 'vidutinis' ? '#d1a220' : '#3d6b9c'
+              const r = Math.max(8, Math.min(40, (g.radiusKm ?? 40) * 0.7))
+              return (
+                <CircleMarker
+                  key={g.id}
+                  center={[g.lat, g.lng]}
+                  radius={r}
+                  pathOptions={{ color: intensityColor, fillColor: intensityColor, fillOpacity: 0.12, weight: 1.5, dashArray: '4 4' }}
+                >
+                  <Popup>
+                    <p className="text-sm font-semibold">{g.areaName}</p>
+                    <p className="text-xs font-medium" style={{ color: intensityColor }}>
+                      {g.type === 'jamming' ? 'Trikdymas (jamming)' : 'Klaidinimas (spoofing)'} ·{' '}
+                      {g.intensity === 'aukstas' ? 'Aukštas' : g.intensity === 'vidutinis' ? 'Vidutinis' : 'Žemas'} intensyvumas
+                    </p>
+                    {g.radiusKm && <p className="text-[11px] text-base-500">Spindulys: ~{g.radiusKm} km</p>}
+                  </Popup>
+                </CircleMarker>
+              )
+            })}
         </MapContainer>
 
         {/* ADS-B šviežumo žyma */}

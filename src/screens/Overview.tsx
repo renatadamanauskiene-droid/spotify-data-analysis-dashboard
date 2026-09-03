@@ -8,6 +8,7 @@ import { ConfidenceBadge } from '@/components/ConfidenceBadge'
 import { EmptyState } from '@/components/EmptyState'
 import { DemoBadge } from '@/components/DemoBadge'
 import { CorridorIcon, AlertTriangleIcon, ClockIcon, ChevronRightIcon } from '@/components/icons'
+import { WindWidget } from '@/components/WindWidget'
 import { changeTypeLabel, formatRelativeLt, formatDateTimeLt } from '@/lib/format'
 import { getDataMode } from '@/lib/dataSource'
 import type { EventItem, RiskLevel, Lt72Alert } from '@/types'
@@ -245,6 +246,9 @@ export default function Overview() {
         lastChange={corridorLastChange ? formatRelativeLt(corridorLastChange) : '—'}
         onNavigate={() => navigate('/suvalkai')}
       />
+
+      {/* Vėjo kryptis + Astravos AE kontekstas */}
+      <WindWidget />
 
       {/* LEVEL 3 — Recent significant events */}
       <section>
