@@ -138,3 +138,11 @@ export const ClockIcon = (p: IconProps) => (
     <path d="M12 7.5V12l3 2" />
   </svg>
 )
+
+export const EvakuacijaIcon = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="M13 4H5a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h8" />
+    <path d="m17 8 4 4-4 4" />
+    <path d="M21 12H9" />
+  </svg>
+)

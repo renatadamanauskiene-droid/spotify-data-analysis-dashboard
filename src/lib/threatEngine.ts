@@ -29,6 +29,8 @@ export interface ThreatAssessment {
   cls: AircraftClass
   classLabel: string
   level: ThreatLevel
+  badgeLabel: string
+  isNato: boolean
   reasons: string[]
 }
 
@@ -78,7 +80,14 @@ function classifyType(t?: string | null): AircraftClass | null {
   return null
 }
 
-// Kai kurie kariniai šaukiniai (kai tipas nežinomas). Konservatyvu — tik aiškūs prefiksai.
+// Vakarų / NATO šaukiniai — karinis statusas, bet NE grėsmė Baltijos regionui.
+const NATO_CALLSIGN_RE = /^(RCH|FORTE|ASCOT|BAF|GAF|DUKE|LAGR|HKY|CFC|MMF|RFF|BRK|JAKE|HOMER|REDEYE|NORDO|USAF|USMC|USN|RNAF|RDAF|RAFAIR|RAFCAM|EGLL|EGCC)/
+
+function isNatoCallsign(callsign?: string | null): boolean {
+  return callsign ? NATO_CALLSIGN_RE.test(callsign.toUpperCase().trim()) : false
+}
+
+// Bet kurio karinio šaukinio atpažinimas (platus sąrašas, NE tik NATO).
 function militaryCallsign(callsign?: string | null): boolean {
   if (!callsign) return false
   const c = callsign.toUpperCase().trim()
@@ -93,36 +102,47 @@ export function assessThreat(f: LiveFlight): ThreatAssessment {
   const typeClass = classifyType(f.typeCode)
   const flaggedMil = ((f.dbFlags ?? 0) & 1) === 1
   const milCall = militaryCallsign(f.callsign)
+  const nato = isNatoCallsign(f.callsign)
   const isMilitary = Boolean(typeClass) || flaggedMil || milCall
 
   const cls: AircraftClass = typeClass ?? (isMilitary ? 'karinis_kita' : 'civilinis')
 
   if (f.typeCode && typeClass) reasons.push(`Tipas: ${f.typeDesc || f.typeCode} (${CLASS_LABELS[typeClass].toLowerCase()})`)
   if (flaggedMil) reasons.push('ADS-B duomenų bazėje pažymėtas kaip karinis')
-  if (milCall) reasons.push(`Karinio tipo šaukinys (${f.callsign?.trim()})`)
+  if (milCall && !nato) reasons.push(`Karinio tipo šaukinys (${f.callsign?.trim()})`)
+  if (nato) reasons.push(`NATO / sąjungininkų orlaivis (${f.callsign?.trim()})`)
 
   // Avariniai kodai — nepriklauso nuo karinio statuso.
   const emergencySquawk = f.squawk === '7700' || f.squawk === '7500' || f.squawk === '7600'
   const hasEmergency = Boolean(f.emergency && f.emergency !== 'none') || emergencySquawk
 
+  const country = (f.originCountry || '').toLowerCase()
+  const isHostileCountry = country.includes('russia') || country.includes('belarus')
+
   let level: ThreatLevel = 'INFO'
   if (isMilitary) level = 'ISPEJIMAS'
-  if (HIGH_THREAT.includes(cls)) {
-    level = 'PAVOJUS'
-    reasons.push('Potencialiai ginkluotas / puolamasis tipas')
+  if (HIGH_THREAT.includes(cls) && !nato) {
+    // Puolamasis tipas iš Rusijos/Baltarusijos → PAVOJUS; kita → ISPEJIMAS (žr. kontekstą)
+    if (isHostileCountry) {
+      level = 'PAVOJUS'
+      reasons.push(`Puolamasis tipas, registruota: ${f.originCountry}`)
+    } else {
+      reasons.push('Puolamasis tipas — ADS-B žyma (žr. kontekstą)')
+    }
   }
   if (hasEmergency) {
     level = 'PAVOJUS'
     reasons.push(emergencySquawk ? `Avarinis atsakiklio kodas (squawk ${f.squawk})` : 'Paskelbta avarinė situacija')
   }
 
-  // Registracijos šalies kontekstas (NE savarankiškas pagrindas grėsmei).
-  const country = (f.originCountry || '').toLowerCase()
-  if (isMilitary && (country.includes('russia') || country.includes('belarus'))) {
+  if (isMilitary && isHostileCountry && !reasons.some((r) => r.includes('Registruota'))) {
     reasons.push(`Registruota: ${f.originCountry}`)
   }
 
-  return { isMilitary, cls, classLabel: CLASS_LABELS[cls], level, reasons }
+  const badgeLabel =
+    level === 'PAVOJUS' ? 'PAVOJUS' : level === 'ISPEJIMAS' ? (nato ? 'NATO' : 'STEBIMAS') : 'Civilinis'
+
+  return { isMilitary, cls, classLabel: CLASS_LABELS[cls], level, badgeLabel, isNato: nato, reasons }
 }
 
 export interface ThreatSummary {

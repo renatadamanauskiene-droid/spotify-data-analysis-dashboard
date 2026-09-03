@@ -23,6 +23,7 @@ import type {
   AlertItem,
   DailySnapshot,
   DataMode,
+  Lt72Alert,
 } from '@/types'
 
 export function getDataMode(): DataMode {
@@ -286,6 +287,18 @@ export const getAlerts = () => (dataMode === 'demo' ? Promise.resolve(demo.demoA
 
 export const getSnapshots = () =>
   dataMode === 'demo' ? Promise.resolve(demo.demoSnapshots) : fetchTable('daily_snapshots', mapSnapshot, 'date')
+
+const mapLt72Alert = (r: Record<string, unknown>): Lt72Alert => ({
+  id: r.id as string,
+  title: r.title as string,
+  summary: (r.summary as string) || null,
+  publishedAt: (r.published_at as string) || null,
+  url: r.url as string,
+  fetchedAt: r.fetched_at as string,
+})
+
+export const getLt72Alerts = () =>
+  dataMode === 'demo' ? Promise.resolve([]) : fetchTable('lt72_alerts', mapLt72Alert, 'published_at')
 
 const mapLiveAircraft = (r: Record<string, unknown>): LiveFlight => ({
   icao24: r.icao24 as string,

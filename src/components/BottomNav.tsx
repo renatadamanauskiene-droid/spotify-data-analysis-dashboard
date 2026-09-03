@@ -8,17 +8,17 @@ export function BottomNav() {
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-base-700 bg-base-900/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
-      <div className="mx-auto grid max-w-md grid-cols-6">
+      <div className="mx-auto grid max-w-md grid-cols-5">
         {primaryNav.map((item) => (
           <NavLink
             key={item.path}
             to={item.path}
             className={({ isActive }) =>
-              `flex flex-col items-center gap-1 py-2.5 text-[10px] ${isActive ? 'text-accent' : 'text-base-400'}`
+              `flex flex-col items-center gap-1 py-2.5 text-[11px] ${isActive ? 'text-accent' : 'text-base-400'}`
             }
           >
             <item.icon className="h-5 w-5" />
-            {item.shortLabel ?? item.label}
+            {item.label}
           </NavLink>
         ))}
         <NavLink
