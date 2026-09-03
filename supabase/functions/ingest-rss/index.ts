@@ -25,6 +25,10 @@ const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
   auth: { persistSession: false },
 })
 
+function stripHtml(html: string): string {
+  return html.replace(/<[^>]*>/g, ' ').replace(/\s{2,}/g, ' ').trim()
+}
+
 async function sha256Hex(input: string): Promise<string> {
   const data = new TextEncoder().encode(input)
   const digest = await crypto.subtle.digest('SHA-256', data)
@@ -179,7 +183,8 @@ Deno.serve(async () => {
 
       for (const item of items) {
         // RELEVANTIŠKUMO filtras — atmetama, kas nesusiję su tema (išvalo bendrus feed'us).
-        if (!isRelevant(`${item.title} ${item.description}`)) {
+        const cleanDesc = stripHtml(item.description)
+        if (!isRelevant(`${item.title} ${cleanDesc}`)) {
           skipped += 1
           continue
         }
@@ -192,7 +197,7 @@ Deno.serve(async () => {
           .insert(
             {
               raw_title: item.title,
-              summary_lt: item.description.slice(0, 400),
+              summary_lt: cleanDesc.slice(0, 400),
               published_at: publishedAt,
               source_id: adapter.sourceId,
               source_url: item.link,
