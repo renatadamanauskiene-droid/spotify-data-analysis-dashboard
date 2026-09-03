@@ -12,6 +12,17 @@ const THREAT_STYLES: Record<ThreatLevel, { badge: string; label: string }> = {
   INFO: { badge: 'border-base-700 bg-base-800 text-base-400', label: 'Civilinis' },
 }
 
+function estimateRegion(lat: number | null, lng: number | null): string {
+  if (lat == null || lng == null) return ''
+  if (lat >= 54.1 && lat <= 55.2 && lng >= 19.3 && lng <= 22.9) return 'Kaliningradas'
+  if (lng >= 25.0 && lat >= 51.3 && lat <= 56.2) return 'Baltarusija'
+  if (lat >= 53.9 && lat <= 56.5 && lng >= 20.9 && lng <= 27.0) return 'Lietuva'
+  if (lat >= 55.7 && lat <= 58.1 && lng >= 21.0 && lng <= 28.3) return 'Latvija'
+  if (lat >= 57.5 && lat <= 59.7 && lng >= 21.8 && lng <= 28.2) return 'Estija'
+  if (lat >= 49.0 && lat <= 54.9 && lng >= 14.1 && lng <= 24.2) return 'Lenkija'
+  return `${lat.toFixed(1)}°N ${lng.toFixed(1)}°E`
+}
+
 const CLIENT_REFRESH_MS = 90_000
 const SERVER_REFRESH_MS = 30_000
 
@@ -267,10 +278,13 @@ export default function AviationScreen() {
                   {a.isMilitary && a.reasons.length > 0 && (
                     <p className="mt-1.5 text-[11px] text-base-400">{a.reasons.join(' · ')}</p>
                   )}
-                  <div className="mt-2 grid grid-cols-3 gap-2 text-[11px] text-base-400">
+                  <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] text-base-400">
                     <span>Aukštis: {f.baroAltitudeM != null ? `${Math.round(f.baroAltitudeM)} m` : '—'}</span>
                     <span>Greitis: {f.velocityMs != null ? `${Math.round(f.velocityMs * 3.6)} km/h` : '—'}</span>
                     <span>Kryptis: {f.headingDeg != null ? `${Math.round(f.headingDeg)}°` : '—'}</span>
+                    {estimateRegion(f.lat, f.lng) && (
+                      <span className="font-medium text-base-300">Vieta: {estimateRegion(f.lat, f.lng)}</span>
+                    )}
                   </div>
                 </li>
               )
