@@ -14,6 +14,7 @@ import MissilesScreen from '@/screens/MissilesScreen'
 import GnssScreen from '@/screens/GnssScreen'
 import NotamScreen from '@/screens/NotamScreen'
 import SourcesScreen from '@/screens/SourcesScreen'
+import EvakuacijaScreen from '@/screens/EvakuacijaScreen'
 
 export default function App() {
   return (
@@ -33,6 +34,7 @@ export default function App() {
           <Route path="/gnss" element={<GnssScreen />} />
           <Route path="/notam" element={<NotamScreen />} />
           <Route path="/saltiniai" element={<SourcesScreen />} />
+          <Route path="/evakuacija" element={<EvakuacijaScreen />} />
         </Routes>
       </AppShell>
     </AppDataProvider>

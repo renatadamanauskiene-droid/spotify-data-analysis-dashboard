@@ -12,6 +12,7 @@ import {
   NotamIcon,
   CorridorIcon,
   SourceIcon,
+  EvakuacijaIcon,
 } from '@/components/icons'
 import type { ComponentType, SVGProps } from 'react'
 
@@ -26,10 +27,11 @@ export const primaryNav: NavItem[] = [
   { path: '/', label: 'Dabar', icon: HomeIcon },
   { path: '/zemelapis', label: 'Žemėlapis', icon: MapIcon },
   { path: '/signalai', label: 'Signalai', icon: BellIcon },
-  { path: '/aviacija', label: 'Aviacija', icon: PlaneIcon },
+  { path: '/evakuacija', label: 'Evakuacija', icon: EvakuacijaIcon },
 ]
 
 export const moreNav: NavItem[] = [
+  { path: '/aviacija', label: 'Aviacija', icon: PlaneIcon },
   { path: '/suvalkai', label: 'Suvalkų koridorius', icon: CorridorIcon },
   { path: '/gnss', label: 'GPS / GNSS ir el. kova', icon: RadarIcon },
   { path: '/srautas', label: 'Srautas', icon: RssIcon },

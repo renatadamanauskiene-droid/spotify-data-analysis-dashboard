@@ -5,8 +5,8 @@ export function Sidebar() {
   return (
     <aside className="hidden w-64 shrink-0 flex-col border-r border-base-700 bg-base-900 md:flex">
       <div className="px-5 py-6">
-        <p className="text-sm font-semibold leading-tight text-base-100">Baltarusijos karinė stebėsena</p>
-        <p className="mt-1 text-xs leading-snug text-base-500">Ankstyvojo perspėjimo situacijos centras Lietuvai</p>
+        <p className="text-sm font-semibold leading-tight text-base-100">SITUACIJA LT</p>
+        <p className="mt-1 text-xs leading-snug text-base-500">Gyva grėsmių, perspėjimų ir civilinės saugos stebėsena</p>
       </div>
       <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 pb-6">
         {primaryNav.map((item) => (
@@ -39,6 +39,11 @@ export function Sidebar() {
           </NavLink>
         ))}
       </nav>
+      <div className="border-t border-base-800 px-5 py-4">
+        <p className="text-[10px] leading-relaxed text-base-600">
+          Nepriklausoma viešų duomenų ir OSINT platforma. Kritiniais atvejais vadovaukitės LT72, 112 ir atsakingų institucijų nurodymais.
+        </p>
+      </div>
     </aside>
   )
 }
