@@ -1,8 +1,7 @@
 // Edge Function: ingest-lt72
-// Tikrina lt72.lt/kategorija/pranesimai/ kas 5 min ir išsaugo naujausius perspėjimus
-// (oro pavojus, audros, radiacija ir kt.) į lt72_alerts lentelę.
-// LT72 neturi RSS/API — nuskaitomas viešas HTML puslapis.
-// Paleidimas: Supabase Dashboard → Edge Functions → Schedule (*/5 * * * *)
+// Tikrina lt72.lt WordPress REST API kas 5 min ir išsaugo perspėjimus į lt72_alerts.
+// Naudojamas WordPress JSON API (ne HTML scraping) — veikia iš cloud serverių.
+// Svarbiausios kategorijos: 49=pranesimai, 72=svarbi-informacija, 81=rekomendacijos-oro-pavojaus
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -10,51 +9,59 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistSession: false } })
 
-const LT72_URL = 'https://lt72.lt/kategorija/pranesimai/'
+const WP_API_URL =
+  'https://lt72.lt/wp-json/wp/v2/posts?categories=49,72,81&per_page=20&orderby=date&order=desc&_fields=id,slug,title,excerpt,date,link'
+
+interface WpPost {
+  id: number
+  slug: string
+  title: { rendered: string }
+  excerpt: { rendered: string }
+  date: string
+  link: string
+}
 
 interface ParsedAlert {
   id: string
   title: string
   summary: string | null
-  published_at: string | null
+  published_at: string
   url: string
 }
 
-function parseLt72Html(html: string): ParsedAlert[] {
-  const alerts: ParsedAlert[] = []
+function stripHtml(html: string): string {
+  return html
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&hellip;/g, '…')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#8220;/g, '"')
+    .replace(/&#8221;/g, '"')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+}
 
-  // Kiekvienas straipsnis: <h3...><a href="/lt/...">Antraštė</a></h3> ... <p>Tekstas</p> ... <p>Data</p>
-  const articleRe = /<h3[^>]*>\s*<a[^>]+href="([^"]+)"[^>]*>([^<]+)<\/a>\s*<\/h3>([\s\S]*?)(?=<h3|<footer|<\/main|$)/gi
-  let m: RegExpExecArray | null
-
-  while ((m = articleRe.exec(html)) !== null) {
-    const [, href, rawTitle, rest] = m
-
-    // Pirmasis <p> — santrauka
-    const pMatch = rest.match(/<p[^>]*>([^<]{5,})<\/p>/)
-    const summary = pMatch?.[1]?.trim() ?? null
-
-    // Data iš bet kurio <p> (formatas YYYY-MM-DD)
-    const dateMatch = rest.match(/(\d{4}-\d{2}-\d{2})/)
-    const published_at = dateMatch ? `${dateMatch[1]}T12:00:00Z` : null
-
-    // Slug = paskutinis URL segmentas
-    const slug = href.replace(/\/$/, '').split('/').pop() ?? href.replace(/\W+/g, '-')
-
-    const url = href.startsWith('http') ? href : `https://lt72.lt${href.startsWith('/') ? '' : '/'}${href}`
-
-    if (slug && rawTitle.trim().length > 2) {
-      alerts.push({ id: slug, title: rawTitle.trim(), summary, published_at, url })
-    }
-  }
-
-  return alerts
+function parsePosts(posts: WpPost[]): ParsedAlert[] {
+  return posts.map((p) => ({
+    id: p.slug || String(p.id),
+    title: stripHtml(p.title.rendered),
+    summary: p.excerpt?.rendered ? stripHtml(p.excerpt.rendered).slice(0, 500) || null : null,
+    published_at: p.date ? new Date(p.date).toISOString() : new Date().toISOString(),
+    url: p.link,
+  }))
 }
 
 Deno.serve(async () => {
   try {
-    const res = await fetch(LT72_URL, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; BY-Stebesena/1.0; +https://github.com/renatadamanauskiene-droid)' },
+    const res = await fetch(WP_API_URL, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+        Accept: 'application/json',
+        'Accept-Language': 'lt-LT,lt;q=0.9,en;q=0.8',
+      },
       signal: AbortSignal.timeout(15_000),
     })
 
@@ -62,19 +69,19 @@ Deno.serve(async () => {
       return new Response(JSON.stringify({ error: `HTTP ${res.status}` }), { status: 200 })
     }
 
-    const html = await res.text()
-    const alerts = parseLt72Html(html)
-
-    if (alerts.length === 0) {
-      return new Response(JSON.stringify({ parsed: 0, note: 'Nerasta perspėjimų HTML struktūroje' }), { status: 200 })
+    const posts: WpPost[] = await res.json()
+    if (!Array.isArray(posts) || posts.length === 0) {
+      return new Response(JSON.stringify({ parsed: 0, note: 'WP API grąžino tuščią masyvą' }), { status: 200 })
     }
+
+    const alerts = parsePosts(posts)
 
     const { error } = await supabase
       .from('lt72_alerts')
-      .upsert(alerts.map((a) => ({ ...a, fetched_at: new Date().toISOString() })), {
-        onConflict: 'id',
-        ignoreDuplicates: false,
-      })
+      .upsert(
+        alerts.map((a) => ({ ...a, fetched_at: new Date().toISOString() })),
+        { onConflict: 'id', ignoreDuplicates: false },
+      )
 
     if (error) throw error
 
