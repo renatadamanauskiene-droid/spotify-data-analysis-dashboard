@@ -30,8 +30,11 @@ jobs:
       - name: Fetch lt72.lt RSS per CF Worker ir įterpti į Supabase
         env:
           SUPABASE_URL: https://wmhvjwuzxgwlqxgkksfa.supabase.co
-          # anon/publishable raktas — skirtas būti viešas (apsauga per RLS)
-          SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndtaHZqd3V6eGd3bHF4Z2trc2ZhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyMzY5ODgsImV4cCI6MjEwMzgxMjk4OH0.KfE6ZH6AjCUrm4C0BkPs7ER2HNbx1YT-RW_4FDQcRPA
+          # Service role raktas apeinė RLS — saugus backend procesui.
+          # Pridėti: GitHub repo > Settings > Secrets and variables > Actions > New secret
+          # Pavadinimas: SUPABASE_SERVICE_KEY
+          # Reikšmė: rasti Supabase Dashboard > Project Settings > API > service_role (secret)
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           # Nustatyti GitHub Actions variables skiltyje: Settings > Variables > Actions
           LT72_PROXY_URL: ${{ vars.LT72_PROXY_URL }}
         run: |
@@ -41,8 +44,13 @@ jobs:
           from xml.etree import ElementTree as ET
 
           proxy_url = os.environ.get("LT72_PROXY_URL", "").strip()
+          service_key = os.environ.get("SUPABASE_SERVICE_KEY", "").strip()
           if not proxy_url:
             print("LT72_PROXY_URL nenustatytas. Žr. workers/lt72-proxy/ sąrankai.")
+            print("Šiam kartui praleidžiama — nebus klaida.")
+            sys.exit(0)
+          if not service_key:
+            print("SUPABASE_SERVICE_KEY nenustatytas. Žr. GitHub Secrets sąrankai.")
             print("Šiam kartui praleidžiama — nebus klaida.")
             sys.exit(0)
 
@@ -129,9 +137,9 @@ jobs:
 
           print(f"Gauta {len(records)} įrašų iš lt72.lt")
 
-          # 3. Upsert į Supabase per REST API
+          # 3. Upsert į Supabase per REST API (service role apeinė RLS)
           url = os.environ["SUPABASE_URL"]
-          key = os.environ["SUPABASE_ANON_KEY"]
+          key = service_key
           data = json.dumps(records).encode()
           req = urllib.request.Request(
             f"{url}/rest/v1/lt72_alerts",
