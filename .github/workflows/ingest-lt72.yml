@@ -1,164 +1,31 @@
 name: Ingest LT72 Alerts
 
-# Tikrina lt72.lt kas 5 min ir išsaugo oficialius perspėjimus į Supabase.
+# PASTABA: lt72.lt perspėjimų ingestion'ą atlieka Cloudflare Worker (workers/lt72-proxy/),
+# ne šis workflow'as. Worker veikia kas 5 min naudodamas CF cron trigger ir
+# rašo į Supabase tiesiogiai. Šis failas yra rezervinis — aktyvus tik kai
+# Worker yra laikinai nepasiekiamas arba naudojamas kaip manual override.
 #
-# lt72.lt WAF blokuoja cloud IP (GitHub Actions Azure, Supabase Deno Deploy).
-# Sprendimas: Cloudflare Worker kaip proxy (jų edge IP nėra blokuojamas).
-#
-# Sąranka:
-# 1. Sukurti Cloudflare Worker iš workers/lt72-proxy/ katalogo
-# 2. Pridėti GitHub Actions variable: LT72_PROXY_URL = https://lt72-proxy.<user>.workers.dev
-#
-# Kol LT72_PROXY_URL nėra nustatytas — workflow'as praeina be klaidos.
+# Pirmiausia reikia:
+# 1. Worker: CF Dashboard → lt72-proxy → Settings → Add secret: SUPABASE_SERVICE_KEY
+# 2. Worker: redeploy (npx wrangler deploy arba CF Dashboard paste)
 
 on:
-  schedule:
-    - cron: '*/5 * * * *'
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/ingest-lt72.yml'
-      - 'workers/lt72-proxy/**'
+    inputs:
+      reason:
+        description: 'Priežastis (neprivaloma)'
+        required: false
 
 jobs:
-  ingest:
+  status:
     runs-on: ubuntu-latest
-    timeout-minutes: 3
-
     steps:
-      - name: Fetch lt72.lt RSS per CF Worker ir įterpti į Supabase
-        env:
-          SUPABASE_URL: https://wmhvjwuzxgwlqxgkksfa.supabase.co
-          # Service role raktas apeinė RLS — saugus backend procesui.
-          # Pridėti: GitHub repo > Settings > Secrets and variables > Actions > New secret
-          # Pavadinimas: SUPABASE_SERVICE_KEY
-          # Reikšmė: rasti Supabase Dashboard > Project Settings > API > service_role (secret)
-          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-          # Nustatyti GitHub Actions variables skiltyje: Settings > Variables > Actions
-          LT72_PROXY_URL: ${{ vars.LT72_PROXY_URL }}
+      - name: Statusas
         run: |
-          python3 << 'PYEOF'
-          import urllib.request, json, re, os, sys
-          from datetime import datetime, timezone
-          from xml.etree import ElementTree as ET
-
-          proxy_url = os.environ.get("LT72_PROXY_URL", "").strip()
-          service_key = os.environ.get("SUPABASE_SERVICE_KEY", "").strip()
-          if not proxy_url:
-            print("LT72_PROXY_URL nenustatytas. Žr. workers/lt72-proxy/ sąrankai.")
-            print("Šiam kartui praleidžiama — nebus klaida.")
-            sys.exit(0)
-          if not service_key:
-            print("SUPABASE_SERVICE_KEY nenustatytas. Žr. GitHub Secrets sąrankai.")
-            print("Šiam kartui praleidžiama — nebus klaida.")
-            sys.exit(0)
-
-          RSS_URL = proxy_url
-
-          def strip_html(s):
-            if not s:
-              return None
-            s = re.sub(r'<[^>]+>', ' ', s)
-            s = (s.replace('&hellip;', '…').replace('&amp;', '&').replace('&lt;', '<')
-                  .replace('&gt;', '>').replace('&quot;', '"').replace('&nbsp;', ' ')
-                  .replace('&#8220;', '"').replace('&#8221;', '"').replace('\xa0', ' '))
-            return re.sub(r'\s{2,}', ' ', s).strip() or None
-
-          def slug_from_url(url):
-            parts = [p for p in url.rstrip('/').split('/') if p]
-            return parts[-1] if parts else url
-
-          # 1. Gauti RSS per Cloudflare Worker
-          req = urllib.request.Request(RSS_URL, headers={
-            "User-Agent": "SituacijaLT-Ingest/1.0",
-            "Accept": "application/rss+xml, application/xml, text/xml, */*",
-          })
-          try:
-            with urllib.request.urlopen(req, timeout=20) as resp:
-              xml_bytes = resp.read()
-              print(f"RSS gauta: {len(xml_bytes)} baitų (HTTP {resp.status})")
-          except Exception as e:
-            print(f"KLAIDA gaunant RSS: {e}", file=sys.stderr)
-            sys.exit(1)
-
-          # 2. Parsinti RSS XML
-          try:
-            root = ET.fromstring(xml_bytes)
-          except ET.ParseError as e:
-            print(f"RSS XML klaida: {e}", file=sys.stderr)
-            sys.exit(1)
-
-          channel = root.find("channel")
-          if channel is None:
-            print("RSS: nerasta <channel>", file=sys.stderr)
-            sys.exit(1)
-
-          now = datetime.now(timezone.utc).isoformat()
-          records = []
-
-          for item in channel.findall("item"):
-            link = (item.findtext("link") or "").strip()
-            if not link:
-              continue
-            slug = slug_from_url(link)
-
-            title_raw = item.findtext("title") or ""
-            title = strip_html(title_raw) or title_raw.strip()
-
-            desc_raw = item.findtext("description") or ""
-            summary = strip_html(desc_raw)
-            if summary:
-              summary = re.sub(r'\s*The post .+? appeared first on .+?\.?\s*$', '', summary).strip()
-              summary = summary[:500] or None
-
-            pub_raw = item.findtext("pubDate") or ""
-            try:
-              from email.utils import parsedate_to_datetime
-              pub = parsedate_to_datetime(pub_raw).astimezone(timezone.utc).isoformat()
-            except Exception:
-              pub = now
-
-            if not title or not link:
-              continue
-
-            records.append({
-              "id": slug,
-              "title": title,
-              "summary": summary,
-              "published_at": pub,
-              "url": link,
-              "fetched_at": now,
-            })
-
-          if not records:
-            print("RSS: nerasta įrašų.")
-            sys.exit(0)
-
-          print(f"Gauta {len(records)} įrašų iš lt72.lt")
-
-          # 3. Upsert į Supabase per REST API (service role apeinė RLS)
-          url = os.environ["SUPABASE_URL"]
-          key = service_key
-          data = json.dumps(records).encode()
-          req = urllib.request.Request(
-            f"{url}/rest/v1/lt72_alerts",
-            data=data,
-            headers={
-              "apikey": key,
-              "Authorization": f"Bearer {key}",
-              "Content-Type": "application/json",
-              "Prefer": "resolution=merge-duplicates",
-            },
-            method="POST",
-          )
-          try:
-            with urllib.request.urlopen(req, timeout=15) as resp:
-              print(f"✓ Upsert sėkmingas: {len(records)} perspėjimų (HTTP {resp.status})")
-              for r in records[:3]:
-                print(f"  · {r['title'][:80]}")
-          except urllib.error.HTTPError as e:
-            body = e.read().decode()
-            print(f"KLAIDA rašant į Supabase: HTTP {e.code} — {body}", file=sys.stderr)
-            sys.exit(1)
-          PYEOF
+          echo "lt72 ingestion vykdomas per Cloudflare Worker (cron)."
+          echo "Worker URL: žr. Cloudflare Dashboard → Workers & Pages → lt72-proxy"
+          echo "Jei Worker neveikia — patikrink CF Dashboard → lt72-proxy → Logs"
+          echo "Ir įsitikink, kad SUPABASE_SERVICE_KEY secret yra nustatytas."
+          if [ -n "${{ github.event.inputs.reason }}" ]; then
+            echo "Manual trigger priežastis: ${{ github.event.inputs.reason }}"
+          fi
