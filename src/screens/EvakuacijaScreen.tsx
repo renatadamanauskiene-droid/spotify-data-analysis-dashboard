@@ -484,7 +484,7 @@ interface ScoredRoute extends ExitRoute {
   rank: number
 }
 
-function RouteRow({ r, userPos, rank }: { r: ScoredRoute; userPos: { lat: number; lng: number } | null }) {
+function RouteRow({ r, userPos, rank }: { r: ScoredRoute; userPos: { lat: number; lng: number } | null; rank: number }) {
   const origin = userPos ?? { lat: VILNIUS_LAT, lng: VILNIUS_LNG }
   const isBest = !r.danger && rank === 0
   const isSecond = !r.danger && rank === 1
