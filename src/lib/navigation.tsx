@@ -25,9 +25,9 @@ export interface NavItem {
 
 export const primaryNav: NavItem[] = [
   { path: '/', label: 'Dabar', icon: HomeIcon },
-  { path: '/zemelapis', label: 'Žemėlapis', icon: MapIcon },
+  { path: '/zemelapis', label: 'Žemėlapis', shortLabel: 'Žemėlapis', icon: MapIcon },
   { path: '/signalai', label: 'Signalai', icon: BellIcon },
-  { path: '/evakuacija', label: 'Evakuacija', icon: EvakuacijaIcon },
+  { path: '/evakuacija', label: 'Evakuacija', shortLabel: 'Evakuacija', icon: EvakuacijaIcon },
 ]
 
 export const moreNav: NavItem[] = [

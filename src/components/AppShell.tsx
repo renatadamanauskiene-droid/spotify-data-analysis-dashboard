@@ -15,8 +15,8 @@ export function AppShell({ children }: { children: ReactNode }) {
             DEMO REŽIMAS — rodomi pavyzdiniai duomenys, ne realūs žvalgybos faktai. Realūs šaltiniai dar neintegruoti.
           </div>
         )}
-        <main className="flex-1 pb-20 md:pb-8">
-          <div className="mx-auto w-full max-w-5xl px-4 py-5 md:px-8 md:py-8">{children}</div>
+        <main className="flex-1 pb-[72px] md:pb-8">
+          <div className="mx-auto w-full max-w-5xl px-4 py-4 md:px-8 md:py-8">{children}</div>
         </main>
       </div>
       <BottomNav />
