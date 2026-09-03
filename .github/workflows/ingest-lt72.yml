@@ -1,0 +1,113 @@
+name: Ingest LT72 Alerts
+
+# Tikrina lt72.lt kas 5 min ir išsaugo oficialius perspėjimus į Supabase.
+# Veikia iš GitHub Actions (Azure IP), o ne iš Supabase Edge Functions (Deno Deploy IP —
+# blokuojamas lt72.lt WAF). Nereikalingi papildomi secrets — naudojamas viešas anon raktas.
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/ingest-lt72.yml'
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+
+    steps:
+      - name: Fetch lt72.lt ir įterpti į Supabase
+        env:
+          SUPABASE_URL: https://wmhvjwuzxgwlqxgkksfa.supabase.co
+          # anon/publishable raktas — skirtas būti viešas (apsauga per RLS)
+          SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndtaHZqd3V6eGd3bHF4Z2trc2ZhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyMzY5ODgsImV4cCI6MjEwMzgxMjk4OH0.KfE6ZH6AjCUrm4C0BkPs7ER2HNbx1YT-RW_4FDQcRPA
+        run: |
+          python3 << 'PYEOF'
+          import urllib.request, json, re, os, sys
+          from datetime import datetime, timezone
+
+          WP_API = (
+            "https://lt72.lt/wp-json/wp/v2/posts"
+            "?categories=49,72,81"
+            "&per_page=20"
+            "&orderby=date"
+            "&order=desc"
+            "&_fields=id,slug,title,excerpt,date,link"
+          )
+
+          def strip_html(s):
+            if not s:
+              return None
+            s = re.sub(r'<[^>]+>', ' ', s)
+            s = s.replace('&hellip;', '…').replace('&amp;', '&').replace('&lt;', '<') \
+                  .replace('&gt;', '>').replace('&quot;', '"').replace('&nbsp;', ' ') \
+                  .replace('&#8220;', '"').replace('&#8221;', '"').replace('\xa0', ' ')
+            return re.sub(r'\s{2,}', ' ', s).strip()
+
+          # 1. Gauti duomenis iš lt72.lt
+          req = urllib.request.Request(WP_API, headers={
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+            "Accept": "application/json",
+            "Accept-Language": "lt-LT,lt;q=0.9,en;q=0.8",
+          })
+          try:
+            with urllib.request.urlopen(req, timeout=15) as resp:
+              posts = json.loads(resp.read())
+          except Exception as e:
+            print(f"KLAIDA gaunant lt72.lt: {e}", file=sys.stderr)
+            sys.exit(1)
+
+          if not posts:
+            print("lt72.lt negrąžino įrašų.")
+            sys.exit(0)
+
+          # 2. Paruošti įrašus
+          now = datetime.now(timezone.utc).isoformat()
+          records = []
+          for p in posts:
+            slug = p.get("slug") or str(p["id"])
+            title = strip_html(p["title"]["rendered"])
+            summary = strip_html(p.get("excerpt", {}).get("rendered", ""))
+            if summary:
+              summary = summary[:500]
+            try:
+              pub = datetime.fromisoformat(p["date"]).replace(tzinfo=timezone.utc).isoformat()
+            except Exception:
+              pub = now
+            records.append({
+              "id": slug,
+              "title": title,
+              "summary": summary or None,
+              "published_at": pub,
+              "url": p["link"],
+              "fetched_at": now,
+            })
+
+          # 3. Upsert į Supabase per REST API
+          url = os.environ["SUPABASE_URL"]
+          key = os.environ["SUPABASE_ANON_KEY"]
+          data = json.dumps(records).encode()
+          req = urllib.request.Request(
+            f"{url}/rest/v1/lt72_alerts",
+            data=data,
+            headers={
+              "apikey": key,
+              "Authorization": f"Bearer {key}",
+              "Content-Type": "application/json",
+              "Prefer": "resolution=merge-duplicates",
+            },
+            method="POST",
+          )
+          try:
+            with urllib.request.urlopen(req, timeout=15) as resp:
+              print(f"✓ Upsert sėkmingas: {len(records)} perspėjimų (HTTP {resp.status})")
+              for r in records[:3]:
+                print(f"  · {r['title'][:80]}")
+          except urllib.error.HTTPError as e:
+            body = e.read().decode()
+            print(f"KLAIDA rašant į Supabase: HTTP {e.code} — {body}", file=sys.stderr)
+            sys.exit(1)
+          PYEOF
